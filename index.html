@@ -31,7 +31,7 @@
 
   <!-- Onboarding Modal -->
   <div class="onboard-overlay" id="onboardOverlay" style="display:none;">
-    <div class="onboard-box">
+    <div class="onboard-box" role="dialog" aria-modal="true" aria-label="Welcome to GST Bill Assistant">
       <div class="onboard-logo">GST Bill Assistant</div>
       <div class="onboard-tagline">Purchase Review Desk for Indian CA Firms — <span class="js-version">v3.0</span></div>
       <div class="onboard-steps">
@@ -247,7 +247,7 @@
       <div class="sidebar-section" style="padding-top: 8px; padding-bottom: 12px;">
         <div class="status-bar">
           <span class="status-dot"></span>
-          <span id="statusLine">Ready for review.</span>
+          <span id="statusLine" role="status" aria-live="polite">Ready for review.</span>
         </div>
       </div>
 
@@ -300,7 +300,7 @@
       <div class="client-tabs-wrap">
         <div class="client-tabs-bar" id="clientTabsBar">
           <!-- tabs injected by JS -->
-          <button class="client-tab-add" id="addClientTabBtn" title="New client tab">+</button>
+          <button class="client-tab-add" id="addClientTabBtn" title="New client tab" aria-label="Add new client tab">+</button>
         </div>
         <div class="client-tab-content">
           <!-- Client Workspace -->
@@ -707,7 +707,7 @@
 
       <!-- Shortcuts Modal (hidden) -->
       <div id="shortcutsModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
-        <div class="modal-box">
+        <div class="modal-box" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
           <h3>⌨ Keyboard Shortcuts</h3>
           <div class="shortcut-row"><span>Extract Bills (regex)</span><kbd>Alt + E</kbd></div>
           <div class="shortcut-row"><span>AI Extract</span><kbd>Alt + A</kbd></div>
@@ -726,7 +726,7 @@
 
   <!-- Settings Modal -->
   <div class="settings-overlay" id="settingsOverlay" style="display:none;" onclick="if(event.target===this)closeSettings()">
-    <div class="settings-box">
+    <div class="settings-box" role="dialog" aria-modal="true" aria-label="Settings">
       <h3>⚙ Settings</h3>
       <div class="settings-section">
         <div class="settings-section-title">Firm Details</div>
@@ -791,7 +791,7 @@
   </footer>
 
   <!-- Toast container -->
-  <div id="toast" class="toast"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <!-- ============================================================
        APPLICATION LOGIC

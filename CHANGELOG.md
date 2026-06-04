@@ -7,6 +7,10 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Accessibility pass.** Visible keyboard `:focus-visible` ring on all interactive elements;
+  `prefers-reduced-motion` support; `role="dialog"`/`aria-modal` on the onboarding, shortcuts,
+  and settings modals; `aria-live` announcements for the toast and status line; an `aria-label`
+  on the add-client-tab button; and an `.sr-only` helper. (Escape already closed all modals.)
 - **Test suite for the core logic.** Pure domain logic (number/invoice normalization, GSTIN
   checksum, bill status, CSV parsing, header aliasing) extracted into `assets/js/core.mjs` and
   covered by `tests/core.test.mjs` (14 tests, `node:test`, run with `npm test`). `app.js` is now

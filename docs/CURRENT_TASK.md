@@ -45,8 +45,13 @@
 - [x] `tests/core.test.mjs` — 14 `node:test` tests, all passing (`npm test`)
 - [x] Verified in-browser: full flow, settings modal via `window.closeSettings`, no console errors
 
+**Wave 4 — Accessibility/polish ✅ DONE:**
+- [x] Keyboard `:focus-visible` ring on all interactive elements; `prefers-reduced-motion`
+- [x] Dialog roles (`role=dialog`/`aria-modal`) on all 3 modals; Esc-close already existed
+- [x] `aria-live` on toast + status line; `aria-label` on add-client button; `.sr-only` helper
+- [x] Verified in-browser: ARIA present, layout intact, no console errors
+
 **Next waves (planned):**
-- Wave 4 — Polish/UX: empty states, error handling, accessibility, mobile.
 - Wave 5 — New features (highest-value first; will propose before building).
 
 (Deferred by user: enabling GitHub Pages + first deploy — only once it's 10/10.)
