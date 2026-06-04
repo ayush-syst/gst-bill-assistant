@@ -92,6 +92,9 @@ cd gst-bill-assistant
 # 2. Run the local dev server (Node 18+)
 npm run dev
 # → http://localhost:4173
+
+# 3. (optional) Run the core-logic test suite
+npm test
 ```
 
 You can also just **open `index.html` directly** in a browser — it works offline (AI features and OCR/PDF libraries need internet, regex extraction does not).
@@ -105,7 +108,11 @@ gst-bill-assistant/
 ├── index.html              # Markup + CDN libs (links the css/js below)
 ├── assets/
 │   ├── css/styles.css      # All styles (design tokens, components, dark mode, responsive)
-│   └── js/app.js           # All application logic
+│   └── js/
+│       ├── app.js          # Application/UI logic (ES module)
+│       └── core.mjs        # Pure domain logic (GST/GSTIN/CSV/status) — the tested core
+├── tests/
+│   └── core.test.mjs       # node:test suite for core.mjs  (npm test)
 ├── scripts/
 │   └── dev-server.mjs       # Zero-dependency static dev server
 ├── docs/

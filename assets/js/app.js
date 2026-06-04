@@ -1,11 +1,19 @@
     "use strict";
 
+    // Pure domain logic lives in core.mjs (also covered by tests/core.test.mjs).
+    import {
+      AMOUNT_TOLERANCE,
+      normalizeNumber, normalizeInvoiceNo, normalizeInvoiceLoose,
+      gstinCheckDigit, gstinChecksumOk, isValidGstin, gstinStateCode,
+      billGst, rowStatus, statusBadgeClass,
+      parseCsv, normalizeHeader, getByHeader
+    } from "./core.mjs";
+
     // =============================================================
-    // CONFIG — single source of truth for tunable values
+    // CONFIG — app-level constants (domain tunables are in core.mjs)
     // =============================================================
     const APP_VERSION = "3.1.0";
     const AI_MODEL = "claude-sonnet-4-6";       // Anthropic model id used for AI features
-    const AMOUNT_TOLERANCE = 2;                  // Rs. rounding tolerance for totals & 2B matching
 
     // =============================================================
     // DOM REFERENCES
@@ -172,26 +180,7 @@ Grand Total: 5900`;
       return "Rs." + new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(value || 0);
     }
 
-    /** Extract a clean number from a string (removes Rs., commas, spaces) */
-    function normalizeNumber(value) {
-      if (!value) return "";
-      const cleaned = String(value).replace(/[₹,\s]/g, "").match(/-?\d+(\.\d+)?/);
-      return cleaned ? cleaned[0] : "";
-    }
-
-    /** Normalize an invoice number for comparison (uppercase, alphanumeric only) */
-    function normalizeInvoiceNo(value) {
-      return String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-    }
-
-    /**
-     * Looser invoice-number key for fallback matching: strips leading zeros from
-     * each digit group (so "INV-0042" and "INV42" match). Used only as a fallback
-     * after an exact match fails, and flagged in the reco note for transparency.
-     */
-    function normalizeInvoiceLoose(value) {
-      return normalizeInvoiceNo(value).replace(/(^|[A-Z])0+(\d)/g, "$1$2");
-    }
+    // normalizeNumber, normalizeInvoiceNo, normalizeInvoiceLoose → imported from core.mjs
 
     /** Escape HTML entities to prevent XSS */
     function escapeHtml(value) {
@@ -285,36 +274,7 @@ Grand Total: 5900`;
     // GSTIN VALIDATION
     // =============================================================
 
-    const GSTIN_CODE = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-    /** Compute the official GSTIN check digit (15th char) from the first 14 chars. */
-    function gstinCheckDigit(first14) {
-      let factor = 2, sum = 0;
-      for (let i = first14.length - 1; i >= 0; i--) {
-        let d = factor * GSTIN_CODE.indexOf(first14[i]);
-        factor = factor === 2 ? 1 : 2;
-        d = Math.floor(d / 36) + (d % 36);
-        sum += d;
-      }
-      return GSTIN_CODE[(36 - (sum % 36)) % 36];
-    }
-
-    /** True only if the GSTIN matches structure AND its checksum digit is correct. */
-    function gstinChecksumOk(gstin) {
-      const g = String(gstin || "").toUpperCase();
-      return /^[0-9A-Z]{15}$/.test(g) && gstinCheckDigit(g.slice(0, 14)) === g[14];
-    }
-
-    /** Validate a GSTIN: 15-char structure + official checksum (catches typos/OCR errors). */
-    function isValidGstin(gstin) {
-      const g = String(gstin || "").toUpperCase();
-      return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(g) && gstinChecksumOk(g);
-    }
-
-    /** Extract state code (first 2 digits) from GSTIN */
-    function gstinStateCode(gstin) {
-      return (gstin && gstin.length >= 2) ? gstin.substring(0, 2) : "";
-    }
+    // gstinCheckDigit, gstinChecksumOk, isValidGstin, gstinStateCode → imported from core.mjs
 
     // =============================================================
     // INVOICE PARSING
@@ -382,39 +342,14 @@ Grand Total: 5900`;
     // BILL GST CALCULATION
     // =============================================================
 
-    /** Sum of CGST + SGST + IGST for a bill */
-    function billGst(bill) {
-      return Number(bill.cgst || 0) + Number(bill.sgst || 0) + Number(bill.igst || 0);
-    }
+    // billGst → imported from core.mjs
 
     // =============================================================
     // STATUS DETERMINATION
     // BUG FIX #3: blocked ITC bills no longer show "Ready"
     // =============================================================
 
-    /** Determine the review status of a bill row */
-    function rowStatus(bill) {
-      const missing = ["vendor", "gstin", "invoiceNo", "date", "taxable", "total"].filter(k => !bill[k]);
-      if (missing.length || !isValidGstin(bill.gstin)) return "Review";
-
-      // BUG FIX #3: Flag blocked-ITC items explicitly
-      if (bill.itcType === "Blocked / review") return "ITC blocked";
-
-      if (bill.risk === "Duplicate") return "Duplicate";
-
-      const gst = billGst(bill);
-      const expected = Number(bill.taxable || 0) + gst;
-      if (Math.abs(expected - Number(bill.total || 0)) > AMOUNT_TOLERANCE) return "Check total";
-
-      return "Ready";
-    }
-
-    /** Map a status string to a badge CSS class */
-    function statusBadgeClass(status) {
-      if (status === "Ready") return "badge-ok";
-      if (status === "Check total" || status === "ITC blocked") return "badge-warn";
-      return "badge-bad";
-    }
+    // rowStatus, statusBadgeClass → imported from core.mjs
 
     // =============================================================
     // DUPLICATE DETECTION
@@ -724,51 +659,7 @@ Grand Total: 5900`;
       }).join(",")).join("\n");
     }
 
-    /** Parse a CSV string into an array of arrays */
-    function parseCsv(text) {
-      const rows = [];
-      let row = [];
-      let current = "";
-      let quoted = false;
-
-      for (let i = 0; i < text.length; i++) {
-        const ch = text[i];
-        const next = text[i + 1];
-
-        if (ch === '"' && quoted && next === '"') {
-          current += '"';
-          i++;
-        } else if (ch === '"') {
-          quoted = !quoted;
-        } else if (ch === "," && !quoted) {
-          row.push(current);
-          current = "";
-        } else if ((ch === "\n" || ch === "\r") && !quoted) {
-          if (ch === "\r" && next === "\n") i++;
-          row.push(current);
-          if (row.some(c => c.trim())) rows.push(row);
-          row = [];
-          current = "";
-        } else {
-          current += ch;
-        }
-      }
-      row.push(current);
-      if (row.some(c => c.trim())) rows.push(row);
-      return rows;
-    }
-
-    function normalizeHeader(value) {
-      return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-    }
-
-    function getByHeader(record, aliases) {
-      for (const alias of aliases) {
-        const found = Object.keys(record).find(k => normalizeHeader(k) === normalizeHeader(alias));
-        if (found) return record[found];
-      }
-      return "";
-    }
+    // parseCsv, normalizeHeader, getByHeader → imported from core.mjs
 
     // =============================================================
     // GSTR-2B LOADING
@@ -3030,6 +2921,8 @@ Grand Total: 5900`;
     loadSavedSettings();
     // Single source of truth for the version label shown in the UI
     document.querySelectorAll(".js-version").forEach(el => { el.textContent = "v" + APP_VERSION; });
+    // app.js is an ES module now, so expose the one function used by an inline onclick handler
+    window.closeSettings = closeSettings;
     // Start auto-save timer
     setInterval(doAutoSave, 30000);
 

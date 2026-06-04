@@ -38,8 +38,14 @@
 - [x] Unmatched-2B tracking by row identity (not key string)
 - [x] Verified in-browser: `PP/891` book ↔ `PP/0891` 2B matches via fallback; no console errors
 
+**Wave 3 — Code quality + tests ✅ DONE:**
+- [x] Extracted pure domain logic into `assets/js/core.mjs` (single source of truth)
+- [x] `app.js` converted to an ES module that imports from core.mjs (only `closeSettings`
+      needed exposing on `window`; no generated inline handlers)
+- [x] `tests/core.test.mjs` — 14 `node:test` tests, all passing (`npm test`)
+- [x] Verified in-browser: full flow, settings modal via `window.closeSettings`, no console errors
+
 **Next waves (planned):**
-- Wave 3 — Code quality: extract pure functions + a `node:test` suite for the core logic.
 - Wave 4 — Polish/UX: empty states, error handling, accessibility, mobile.
 - Wave 5 — New features (highest-value first; will propose before building).
 

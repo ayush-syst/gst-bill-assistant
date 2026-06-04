@@ -75,7 +75,10 @@ gst-bill-assistant/
 ├── index.html              # Page markup + CDN <script> tags; links the css/js below
 ├── assets/
 │   ├── css/styles.css      # ALL styles: :root design tokens, components, dark mode, responsive
-│   └── js/app.js           # ALL logic (~3,000 lines): extraction, reco, exports, UI, state
+│   └── js/
+│       ├── app.js          # UI/app logic (ES module): extraction, reco, exports, state, render
+│       └── core.mjs        # Pure domain logic (GST/GSTIN/CSV/status) — imported by app + tests
+├── tests/core.test.mjs     # node:test suite for core.mjs (npm test) — 14 tests
 ├── scripts/dev-server.mjs  # Zero-dependency static server (node:http)
 ├── docs/                   # PROJECT_CONTEXT / CURRENT_TASK / NEXT_STEPS
 ├── .github/workflows/deploy.yml   # GitHub Pages (manual trigger until Pages is enabled)

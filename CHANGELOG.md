@@ -7,6 +7,11 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Test suite for the core logic.** Pure domain logic (number/invoice normalization, GSTIN
+  checksum, bill status, CSV parsing, header aliasing) extracted into `assets/js/core.mjs` and
+  covered by `tests/core.test.mjs` (14 tests, `node:test`, run with `npm test`). `app.js` is now
+  an ES module that imports from this single source of truth, so the browser app and the tests
+  share the exact same code.
 - **Leading-zero-tolerant 2B matching.** Reconciliation now falls back to a "loose" invoice-number
   match (ignoring leading zeros, e.g. books `PP/891` ↔ 2B `PP/0891`) only when an exact match
   fails, and flags it transparently in the reco note so the reviewer can verify. Unmatched 2B rows
