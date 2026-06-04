@@ -23,9 +23,10 @@ Thanks for your interest! This project helps Indian CA firms review GST purchase
 
 ```bash
 npm run dev      # http://localhost:4173
+npm test         # run the core-logic test suite
 ```
 
-Or just open `index.html` in a browser.
+The app uses native ES modules, so it must be served over `http://` (the dev server above) — opening `index.html` from `file://` won't load.
 
 ## Making a change
 

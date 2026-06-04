@@ -173,7 +173,8 @@ not features.
 ## 9. How to continue from here (handoff)
 
 If you're a fresh chat: read this file + `CURRENT_TASK.md` + `NEXT_STEPS.md`. The live code is
-in `index.html`, `assets/css/styles.css`, `assets/js/app.js`. Run `npm run dev` (or open
-`index.html`) to see it. The original prototype is preserved at
+in `index.html`, `assets/css/styles.css`, `assets/js/app.js`, `assets/js/core.mjs`. Run
+`npm run dev` to see it (ES modules require an http server — `file://` won't load). Run
+`npm test` for the core-logic suite. The original prototype is preserved at
 `C:\Users\Ayush\OneDrive\Documents\gst-bill-assistant.html`. Pick the top item from
 `NEXT_STEPS.md`, and **remember standing instruction #1** (warn + suggest a model before big work).

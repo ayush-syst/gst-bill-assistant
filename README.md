@@ -97,7 +97,10 @@ npm run dev
 npm test
 ```
 
-You can also just **open `index.html` directly** in a browser — it works offline (AI features and OCR/PDF libraries need internet, regex extraction does not).
+> **Note:** the app now uses native ES modules, so it must be served over `http://`
+> (via `npm run dev` or any static host) — opening `index.html` straight from the
+> filesystem (`file://`) won't load. Once served, regex extraction works fully offline;
+> only AI features and the OCR/PDF CDN libraries need internet.
 
 Click **Load Sample Data** on the welcome screen to see the full workflow with demo invoices.
 
