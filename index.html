@@ -26,14 +26,14 @@
   <div class="mobile-topbar">
     <button class="hamburger" id="hamburgerBtn" aria-label="Open menu">☰</button>
     <span style="font-size:14px;font-weight:700;color:var(--primary);">GST Assistant</span>
-    <span style="font-size:11px;color:var(--ink-muted);">v3.0</span>
+    <span class="js-version" style="font-size:11px;color:var(--ink-muted);">v3.0</span>
   </div>
 
   <!-- Onboarding Modal -->
   <div class="onboard-overlay" id="onboardOverlay" style="display:none;">
     <div class="onboard-box">
       <div class="onboard-logo">GST Bill Assistant</div>
-      <div class="onboard-tagline">Purchase Review Desk for Indian CA Firms — v3.0</div>
+      <div class="onboard-tagline">Purchase Review Desk for Indian CA Firms — <span class="js-version">v3.0</span></div>
       <div class="onboard-steps">
         <div class="onboard-step">
           <div class="onboard-step-num">1</div>
@@ -91,7 +91,7 @@
         <span class="header-subtitle">Purchase Review Desk for CA Firms</span>
       </div>
       <div class="header-badges">
-        <span class="header-badge version">v3.0</span>
+        <span class="header-badge version js-version">v3.0</span>
         <span class="header-badge ai-badge" style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;">✦ AI</span>
         <span class="header-badge local">Local Only</span>
         <button id="darkModeBtn" class="btn btn-secondary" style="height:28px;padding:0 10px;font-size:12px;" title="Toggle dark mode">🌙 Dark</button>
@@ -322,7 +322,7 @@
                 </div>
                 <div class="form-group">
                   <label for="clientGstin">Client GSTIN <span class="help-icon" data-tip="15-character GST Identification Number. Format: 2 digits state code + 10 char PAN + 1 digit entity + Z + 1 check digit">?</span></label>
-                  <input id="clientGstin" type="text" value="27AAHCA1234M1Z2" maxlength="15">
+                  <input id="clientGstin" type="text" value="27AAHCA1234M1ZO" maxlength="15">
                   <span class="gstin-hint" id="gstinHint"></span>
                 </div>
                 <div class="form-group">

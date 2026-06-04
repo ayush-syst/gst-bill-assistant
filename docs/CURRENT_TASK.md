@@ -22,15 +22,25 @@
 - [x] **Published to GitHub:** https://github.com/ayush-syst/gst-bill-assistant (public, AGPL-3.0)
       — all 16 files confirmed on `origin/main`
 
-## 🔜 Active / immediate next steps (pick one)
+## 🛠️ In progress: "Make it 10/10" (user wants ALL of: reconciliation accuracy, polish/UX,
+   code quality, new features — then deploy). Working in committed waves.
 
-Nothing is mid-flight. Good next candidates from `NEXT_STEPS.md`:
-1. **Add README screenshots/GIF** (quick, high credibility) — capture the dashboard + bill
-   register + a reconciliation result.
-2. **Update the AI model id** — `app.js` hardcodes `claude-sonnet-4-20250514`; centralize it
-   into one config constant and bump to a current Claude model.
-3. (Deferred by user) **Enable GitHub Pages** + first deploy when ready.
-4. 🔴 **BIG** — Begin **hardening GSTR-2B reconciliation** (the make-or-break feature).
+**Wave 1 — Correctness core ✅ DONE (v3.1.0):**
+- [x] GSTIN **checksum** validation (official mod-36 check digit) + clearer inline hint
+- [x] Fixed sample data to use checksum-valid GSTINs (so the demo passes real validation)
+- [x] Reconciliation **mismatch notes now show book-vs-2B amounts**
+- [x] Centralized CONFIG (`APP_VERSION`, `AI_MODEL`, `AMOUNT_TOLERANCE`); version wired to UI
+- [x] Bumped AI model id → `claude-sonnet-4-6`
+- [x] Verified in-browser (sample→reconcile, checksum valid/typo, no console errors)
+
+**Next waves (planned):**
+- Wave 2 — Reconciliation depth: invoice-no leading-zero tolerance (safe, fallback-only),
+  duplicate-2B handling, robust CSV header coverage.
+- Wave 3 — Code quality: extract pure functions + a `node:test` suite for the core logic.
+- Wave 4 — Polish/UX: empty states, error handling, accessibility, mobile.
+- Wave 5 — New features (highest-value first; will propose before building).
+
+(Deferred by user: enabling GitHub Pages + first deploy — only once it's 10/10.)
 
 ## Notes / context for the next session
 

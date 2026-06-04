@@ -1,6 +1,13 @@
     "use strict";
 
     // =============================================================
+    // CONFIG — single source of truth for tunable values
+    // =============================================================
+    const APP_VERSION = "3.1.0";
+    const AI_MODEL = "claude-sonnet-4-6";       // Anthropic model id used for AI features
+    const AMOUNT_TOLERANCE = 2;                  // Rs. rounding tolerance for totals & 2B matching
+
+    // =============================================================
     // DOM REFERENCES
     // =============================================================
     const els = {
@@ -109,7 +116,7 @@
     // =============================================================
     const sampleText = `TAX INVOICE
 Vendor: Shree Balaji Office Supplies
-GSTIN: 27ABCDE1234F1Z5
+GSTIN: 27ABCDE1234F1Z0
 Invoice No: INV-2026-1042
 Date: 12/05/2026
 HSN: 4820
@@ -130,7 +137,7 @@ Total Invoice Value Rs. 49560
 ---
 PURCHASE BILL
 Vendor Name: Patel Packaging Co
-GSTIN: 24AABCP1234K1Z9
+GSTIN: 24AABCP1234K1ZP
 Invoice Number: PP/0891
 Date: 21 May 2026
 HSN Code 3923
@@ -141,7 +148,7 @@ Invoice Total 10148
 ---
 TAX INVOICE
 Vendor: Hotel Royal Stay
-GSTIN: 27AABCH1234L1Z4
+GSTIN: 27AABCH1234L1ZP
 Invoice No: HRS/5581
 Date: 24/05/2026
 SAC: 996311
@@ -151,10 +158,10 @@ SGST 9%: 450
 Grand Total: 5900`;
 
     const sample2bCsv = `GSTIN,Invoice No,Taxable,CGST,SGST,IGST,Total
-27ABCDE1234F1Z5,INV-2026-1042,12500,1125,1125,0,14750
+27ABCDE1234F1Z0,INV-2026-1042,12500,1125,1125,0,14750
 29AAICA3918J1ZE,BLR/2451/26,42000,0,0,7560,49560
-24AABCP1234K1Z9,PP/0891,8600,774,774,0,10148
-07ABCDE1234F1Z1,DEL/7782,5500,495,495,0,6490`;
+24AABCP1234K1ZP,PP/0891,8600,774,774,0,10148
+07ABCDE1234F1Z2,DEL/7782,5500,495,495,0,6490`;
 
     // =============================================================
     // UTILITY FUNCTIONS
@@ -269,9 +276,30 @@ Grand Total: 5900`;
     // GSTIN VALIDATION
     // =============================================================
 
-    /** Validate a 15-character GSTIN format */
+    const GSTIN_CODE = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+    /** Compute the official GSTIN check digit (15th char) from the first 14 chars. */
+    function gstinCheckDigit(first14) {
+      let factor = 2, sum = 0;
+      for (let i = first14.length - 1; i >= 0; i--) {
+        let d = factor * GSTIN_CODE.indexOf(first14[i]);
+        factor = factor === 2 ? 1 : 2;
+        d = Math.floor(d / 36) + (d % 36);
+        sum += d;
+      }
+      return GSTIN_CODE[(36 - (sum % 36)) % 36];
+    }
+
+    /** True only if the GSTIN matches structure AND its checksum digit is correct. */
+    function gstinChecksumOk(gstin) {
+      const g = String(gstin || "").toUpperCase();
+      return /^[0-9A-Z]{15}$/.test(g) && gstinCheckDigit(g.slice(0, 14)) === g[14];
+    }
+
+    /** Validate a GSTIN: 15-char structure + official checksum (catches typos/OCR errors). */
     function isValidGstin(gstin) {
-      return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gstin || "");
+      const g = String(gstin || "").toUpperCase();
+      return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(g) && gstinChecksumOk(g);
     }
 
     /** Extract state code (first 2 digits) from GSTIN */
@@ -367,7 +395,7 @@ Grand Total: 5900`;
 
       const gst = billGst(bill);
       const expected = Number(bill.taxable || 0) + gst;
-      if (Math.abs(expected - Number(bill.total || 0)) > 2) return "Check total";
+      if (Math.abs(expected - Number(bill.total || 0)) > AMOUNT_TOLERANCE) return "Check total";
 
       return "Ready";
     }
@@ -795,10 +823,13 @@ Grand Total: 5900`;
 
         seen.add(key);
         const fields = ["taxable", "cgst", "sgst", "igst", "total"];
-        const mismatches = fields.filter(f => Math.abs(Number(bill[f] || 0) - Number(match[f] || 0)) > 2);
+        const mismatches = fields.filter(f => Math.abs(Number(bill[f] || 0) - Number(match[f] || 0)) > AMOUNT_TOLERANCE);
 
         if (mismatches.length) {
-          return { ...bill, reco: "Mismatch", recoNote: "Diff: " + mismatches.join(", ") };
+          const detail = mismatches
+            .map(f => `${f.toUpperCase()}: books ${money(Number(bill[f] || 0))} vs 2B ${money(Number(match[f] || 0))}`)
+            .join("; ");
+          return { ...bill, reco: "Mismatch", recoNote: detail };
         }
         return { ...bill, reco: "Matched", recoNote: "" };
       });
@@ -1833,7 +1864,7 @@ Grand Total: 5900`;
         const resp = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-          body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 4000, system: systemPrompt, messages: [{ role: "user", content: raw }] })
+          body: JSON.stringify({ model: AI_MODEL, max_tokens: 4000, system: systemPrompt, messages: [{ role: "user", content: raw }] })
         });
         if (!resp.ok) { const e = await resp.json().catch(()=>({})); throw new Error(e.error?.message || "API " + resp.status); }
         const data = await resp.json();
@@ -1889,7 +1920,7 @@ Grand Total: 5900`;
           method: "POST",
           headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
           body: JSON.stringify({
-            model: "claude-sonnet-4-20250514", max_tokens: 1200,
+            model: AI_MODEL, max_tokens: 1200,
             system: "You are a senior GST consultant in India. Explain GST exceptions to CA firm staff in clear plain English. Be practical and actionable. Use short bullet points. No markdown headers.",
             messages: [{ role: "user", content: "Client: " + ws.clientName + " | Period: " + ws.returnPeriod + " | Total bills: " + bills.length + "\n\nExceptions:\n- " + missing2b + " bills missing in GSTR-2B\n- " + mismatch + " value mismatches\n- " + blocked + " blocked ITC items\n- " + dupes + " possible duplicates\n\nTop actions:\n" + actions.slice(0,15).join("\n") + "\n\nExplain each exception type, the GST risk, and what to do next. Keep it under 300 words." }]
           })
@@ -2474,6 +2505,7 @@ Grand Total: 5900`;
       const stateCode = g.slice(0, 2);
       const stateName = GST_STATE_CODES[stateCode];
       if (!stateName) return { ok: false, msg: "Unknown state code: " + stateCode };
+      if (!gstinChecksumOk(g)) return { ok: false, msg: "Checksum failed — likely a typo (state: " + stateName + ")" };
       return { ok: true, msg: "Valid — " + stateName };
     }
 
@@ -2959,7 +2991,7 @@ Grand Total: 5900`;
       const firstTab = createTab('Aarav Retail Pvt Ltd');
       firstTab.workspace = {
         clientName: 'Aarav Retail Pvt Ltd',
-        clientGstin: '27AAHCA1234M1Z2',
+        clientGstin: '27AAHCA1234M1ZO',
         returnPeriod: '2026-05',
         preparedBy: 'CA Team',
         staffRate: '300'
@@ -2975,6 +3007,8 @@ Grand Total: 5900`;
     renderTrend();
     updateStickySummary();
     loadSavedSettings();
+    // Single source of truth for the version label shown in the UI
+    document.querySelectorAll(".js-version").forEach(el => { el.textContent = "v" + APP_VERSION; });
     // Start auto-save timer
     setInterval(doAutoSave, 30000);
 

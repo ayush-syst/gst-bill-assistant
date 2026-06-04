@@ -6,6 +6,20 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **GSTIN checksum validation.** GSTINs are now verified against the official mod-36 check-digit
+  algorithm, not just structure — catching typos and OCR errors. The inline hint distinguishes
+  "Valid — <state>" from "Checksum failed — likely a typo". Sample data updated to use
+  checksum-valid GSTINs.
+
+### Changed (correctness pass — v3.1)
+- Reconciliation **mismatch notes now show the actual amounts** (e.g. "TAXABLE: books Rs.12,500
+  vs 2B Rs.12,000") instead of just listing which fields differ.
+- Centralized tunables into a single CONFIG block: `APP_VERSION`, `AI_MODEL`, `AMOUNT_TOLERANCE`.
+- The UI version label is now driven from `APP_VERSION` (one source of truth) → shows **v3.1.0**.
+- Updated the AI model id from the dated `claude-sonnet-4-20250514` to the current
+  `claude-sonnet-4-6`, referenced via the `AI_MODEL` constant.
+
 ### Changed
 - **Project restructure:** the single-file prototype (`gst-bill-assistant.html`, ~5,300 lines)
   was split into a proper static-site project — `index.html` (markup) +
