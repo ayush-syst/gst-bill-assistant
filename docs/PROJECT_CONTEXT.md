@@ -56,8 +56,10 @@ eventually launch this as a real (commercial-capable) open-source product.
 - ✅ Full open-source scaffolding added (README, LICENSE, CONTRIBUTING, SECURITY, CHANGELOG,
   .gitignore, dev server, GitHub Pages workflow).
 - ✅ These three handoff docs created.
-- ⏳ **Next:** initialize git, push to GitHub as `ayush-syst/gst-bill-assistant` (public),
-  then iterate on the roadmap. Deployment is intentionally deferred ("deploy later").
+- ✅ **Published to GitHub:** https://github.com/ayush-syst/gst-bill-assistant (public, AGPL-3.0),
+  `main` branch, first commit `801b813`. All 16 files confirmed on the remote.
+- ⏳ **Next:** iterate on the roadmap (`NEXT_STEPS.md`). Deployment is intentionally deferred
+  ("deploy later") — the GitHub Pages workflow is ready and set to manual trigger.
 
 > The original prototype file still exists at `C:\Users\Ayush\OneDrive\Documents\gst-bill-assistant.html`
 > (untouched — kept as a reference/backup).
