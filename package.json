@@ -1,0 +1,39 @@
+{
+  "name": "gst-bill-assistant",
+  "version": "3.0.0",
+  "description": "AI-assisted GST purchase-bill extraction, GSTR-2B reconciliation, ITC review, and Tally/Zoho/Excel exports for Indian CA firms. 100% client-side, local-only.",
+  "type": "module",
+  "private": false,
+  "license": "AGPL-3.0-or-later",
+  "author": "Ayush Yadav (@ayush-syst)",
+  "homepage": "https://github.com/ayush-syst/gst-bill-assistant#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ayush-syst/gst-bill-assistant.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ayush-syst/gst-bill-assistant/issues"
+  },
+  "keywords": [
+    "gst",
+    "gstr-2b",
+    "reconciliation",
+    "tally",
+    "zoho-books",
+    "input-tax-credit",
+    "itc",
+    "ca-firm",
+    "india",
+    "invoice-extraction",
+    "ocr",
+    "accounting"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev-server.mjs 4173",
+    "start": "node scripts/dev-server.mjs 4173",
+    "preview": "node scripts/dev-server.mjs 4173"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,30 @@
+# Dependencies (project is zero-dependency, but ignore just in case)
+node_modules/
+package-lock.json
+npm-debug.log*
+yarn-error.log
+
+# Build / deploy output
+dist/
+build/
+.cache/
+
+# Environment & secrets — NEVER commit API keys
+.env
+.env.*
+*.local
+
+# Editor / OS noise
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# Local scratch / private notes
+scratch/
+*.private.md
