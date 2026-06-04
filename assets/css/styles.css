@@ -1562,3 +1562,11 @@
       white-space: nowrap;
       border: 0;
     }
+
+    /* Invalid vendor GSTIN flagged inline in the bill register. */
+    td input.gstin-invalid {
+      border: 1px solid var(--danger) !important;
+      background: var(--danger-soft);
+      color: var(--danger);
+      font-weight: 600;
+    }

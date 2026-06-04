@@ -140,3 +140,57 @@ export function getByHeader(record, aliases) {
   }
   return "";
 }
+
+// ---------- Dates / return period ----------
+
+const MONTHS = {
+  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+  jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+};
+
+/**
+ * Parse an invoice date into a "YYYY-MM" string, or "" if unparseable.
+ * Handles Indian DD/MM/YYYY (and -, .), "DD Mon YYYY", and ISO YYYY-MM(-DD).
+ * Day-first is assumed (Indian convention).
+ */
+export function parseInvoiceMonth(dateStr) {
+  const s = String(dateStr || "").trim();
+  if (!s) return "";
+
+  // DD Mon YYYY  e.g. "21 May 2026"
+  let m = s.match(/^(\d{1,2})\s+([A-Za-z]{3,})\.?\s+(\d{4})$/);
+  if (m) {
+    const mon = MONTHS[m[2].slice(0, 3).toLowerCase()];
+    return mon ? `${m[3]}-${String(mon).padStart(2, "0")}` : "";
+  }
+
+  // DD/MM/YYYY | DD-MM-YYYY | DD.MM.YYYY  (2- or 4-digit year)
+  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if (m) {
+    const mon = Number(m[2]);
+    let year = Number(m[3]);
+    if (year < 100) year += 2000;
+    return mon >= 1 && mon <= 12 ? `${year}-${String(mon).padStart(2, "0")}` : "";
+  }
+
+  // ISO  YYYY-MM or YYYY-MM-DD
+  m = s.match(/^(\d{4})-(\d{1,2})(?:-\d{1,2})?$/);
+  if (m) {
+    const mon = Number(m[2]);
+    return mon >= 1 && mon <= 12 ? `${m[1]}-${String(mon).padStart(2, "0")}` : "";
+  }
+
+  return "";
+}
+
+/**
+ * True if the bill's invoice date is parseable and falls in a different month than
+ * the selected return period ("YYYY-MM"). Unparseable dates / no period → false
+ * (we don't flag what we can't confidently judge).
+ */
+export function invoicePeriodMismatch(bill, returnPeriod) {
+  const rp = String(returnPeriod || "").trim();
+  if (!rp) return false;
+  const im = parseInvoiceMonth(bill && bill.date);
+  return im !== "" && im !== rp;
+}

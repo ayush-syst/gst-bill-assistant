@@ -6,7 +6,20 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Added
+### Added (new features — v3.2)
+- **Return-period date check.** Bills whose invoice date falls outside the selected GST return
+  period are flagged as a "Wrong period" exception in the Action Center (unparseable dates are
+  never flagged, to avoid false positives). New tested helpers `parseInvoiceMonth` /
+  `invoicePeriodMismatch`.
+- **Invalid GSTIN flagged in the register.** Vendor GSTINs that fail format/checksum now show a
+  red border + tooltip directly in the bill table (updates live while editing), not just lumped
+  into "Review".
+- **Import bills from CSV.** Load an existing bill register (Excel/CSV) via header-aliased columns,
+  with a downloadable template — for firms already keeping books in a spreadsheet.
+- **Add 2B-only invoices to books.** One click pulls "in GSTR-2B but missing from books" rows into
+  the register (pre-filled from 2B, flagged for review) so missed ITC isn't lost.
+
+### Added (accessibility)
 - **Accessibility pass.** Visible keyboard `:focus-visible` ring on all interactive elements;
   `prefers-reduced-motion` support; `role="dialog"`/`aria-modal` on the onboarding, shortcuts,
   and settings modals; `aria-live` announcements for the toast and status line; an `aria-label`

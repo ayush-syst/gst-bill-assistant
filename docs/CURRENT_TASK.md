@@ -51,8 +51,16 @@
 - [x] `aria-live` on toast + status line; `aria-label` on add-client button; `.sr-only` helper
 - [x] Verified in-browser: ARIA present, layout intact, no console errors
 
-**Next waves (planned):**
-- Wave 5 — New features (highest-value first; will propose before building).
+**Wave 5 — New features ✅ DONE (v3.2.0):**
+- [x] Return-period date check ("Wrong period" exception; tested `parseInvoiceMonth`/`invoicePeriodMismatch`)
+- [x] Invalid vendor GSTIN flagged in the register (red border + live update)
+- [x] Import bills from CSV (header-aliased) + downloadable template
+- [x] "Add 2B-only invoices to books" (reverse reconciliation)
+- [x] Verified in-browser (all four) + 16 core tests passing; no console errors
+
+**Status: all 5 planned waves shipped.** Possible further work before deploy: README
+screenshots, more tests (reconcile/import as integration tests), self-host CDN libs for full
+offline, favicon/OG meta. Then the deploy decision (still deferred by user).
 
 (Deferred by user: enabling GitHub Pages + first deploy — only once it's 10/10.)
 

@@ -6,13 +6,14 @@
       normalizeNumber, normalizeInvoiceNo, normalizeInvoiceLoose,
       gstinCheckDigit, gstinChecksumOk, isValidGstin, gstinStateCode,
       billGst, rowStatus, statusBadgeClass,
-      parseCsv, normalizeHeader, getByHeader
+      parseCsv, normalizeHeader, getByHeader,
+      parseInvoiceMonth, invoicePeriodMismatch
     } from "./core.mjs";
 
     // =============================================================
     // CONFIG — app-level constants (domain tunables are in core.mjs)
     // =============================================================
-    const APP_VERSION = "3.1.0";
+    const APP_VERSION = "3.2.0";
     const AI_MODEL = "claude-sonnet-4-6";       // Anthropic model id used for AI features
 
     // =============================================================
@@ -402,6 +403,15 @@ Grand Total: 5900`;
       return `<td><input data-index="${index}" data-key="${key}" type="${inputType}" value="${escapeHtml(value)}"></td>`;
     }
 
+    /** Render the GSTIN cell, flagging an invalid (format/checksum) vendor GSTIN. */
+    function gstinCell(index) {
+      const value = bills[index].gstin ?? "";
+      const invalid = value && !isValidGstin(value);
+      const cls = invalid ? ' class="gstin-invalid"' : "";
+      const title = invalid ? ' title="Invalid GSTIN — fails format or checksum"' : "";
+      return `<td><input data-index="${index}" data-key="gstin" type="text" value="${escapeHtml(value)}"${cls}${title}></td>`;
+    }
+
     /** Render the 2B reconciliation badge for a bill */
     function recoBadge(bill) {
       const reco = bill.reco || "Not checked";
@@ -468,7 +478,7 @@ Grand Total: 5900`;
           <td><input type="checkbox" class="row-checkbox bill-checkbox" data-bill-id="${bill.id}" ${isChecked?"checked":""}></td>
           <td><span class="badge ${statusBadgeClass(status)}">${escapeHtml(status)}</span> <span class="conf-dot ${confClass}" title="${confTitle}"></span></td>
           ${cell(index, "vendor")}
-          ${cell(index, "gstin")}
+          ${gstinCell(index)}
           ${cell(index, "invoiceNo")}
           ${cell(index, "date")}
           ${cell(index, "hsn")}
@@ -508,6 +518,11 @@ Grand Total: 5900`;
           const newStatus = rowStatus(bills[idx]);
           statusEl.textContent = newStatus;
           statusEl.className = "badge " + statusBadgeClass(newStatus);
+          if (key === "gstin") {
+            const bad = event.target.value && !isValidGstin(event.target.value);
+            event.target.classList.toggle("gstin-invalid", !!bad);
+            event.target.title = bad ? "Invalid GSTIN — fails format or checksum" : "";
+          }
           scheduleAutoSave();
         });
       });
@@ -759,13 +774,90 @@ Grand Total: 5900`;
     }
 
     // =============================================================
+    // IMPORT BILLS FROM CSV (existing register)
+    // =============================================================
+
+    function importBillsCsv(text) {
+      const rows = parseCsv(text);
+      if (rows.length < 2) { showToast("Could not read CSV (need a header row + data).", "error"); return; }
+      const headers = rows[0].map(h => h.trim());
+      const imported = rows.slice(1).map((row, i) => {
+        const rec = {};
+        headers.forEach((h, idx) => { rec[h] = row[idx] || ""; });
+        return {
+          id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + i),
+          vendor:    String(getByHeader(rec, ["Vendor", "Vendor Name", "Supplier", "Supplier Name"])).trim(),
+          gstin:     String(getByHeader(rec, ["GSTIN", "Vendor GSTIN", "Supplier GSTIN", "GSTIN of supplier"])).trim().toUpperCase(),
+          invoiceNo: String(getByHeader(rec, ["Invoice No", "Invoice Number", "Bill No", "Bill Number"])).trim(),
+          date:      String(getByHeader(rec, ["Date", "Invoice Date"])).trim(),
+          hsn:       String(getByHeader(rec, ["HSN", "HSN/SAC", "HSN Code", "SAC", "SAC Code"])).trim(),
+          taxable:   normalizeNumber(getByHeader(rec, ["Taxable", "Taxable Value", "Taxable Amount"])),
+          cgst:      normalizeNumber(getByHeader(rec, ["CGST", "Central Tax"])),
+          sgst:      normalizeNumber(getByHeader(rec, ["SGST", "State Tax"])),
+          igst:      normalizeNumber(getByHeader(rec, ["IGST", "Integrated Tax"])),
+          total:     normalizeNumber(getByHeader(rec, ["Total", "Invoice Value", "Total Invoice Value", "Total Amount"])),
+          ledger:    String(getByHeader(rec, ["Ledger"]) || "Purchase Account"),
+          itcType:   String(getByHeader(rec, ["ITC Type", "ITC"]) || "Input goods"),
+          risk: "", reco: "", recoNote: "", raw: ""
+        };
+      }).filter(b => b.vendor || b.gstin || b.invoiceNo || b.taxable);
+
+      if (!imported.length) { showToast("No usable rows found in CSV.", "error"); return; }
+      bills = bills.concat(imported);
+      detectDuplicateRisk();
+      invalidateApproval();
+      setStatus(`Imported ${imported.length} bill(s) from CSV.`);
+      addAudit(`Imported ${imported.length} bill(s) from a CSV register.`);
+      showToast(`Imported ${imported.length} bill(s) from CSV.`, "success");
+      render();
+      updateWorkflow();
+    }
+
+    function downloadBillsTemplate() {
+      const headers = ["Vendor", "GSTIN", "Invoice No", "Date", "HSN", "Taxable", "CGST", "SGST", "IGST", "Total", "Ledger", "ITC Type"];
+      const example = ["Shree Balaji Office Supplies", "27ABCDE1234F1Z0", "INV-2026-1042", "12/05/2026", "4820", "12500", "1125", "1125", "0", "14750", "Office Expenses", "Input goods"];
+      downloadText("bills-template.csv", toCsv([headers, example]));
+      showToast("Bills CSV template downloaded.", "success");
+    }
+
+    // =============================================================
+    // ADD 2B-ONLY INVOICES TO BOOKS (reverse reconciliation)
+    // =============================================================
+
+    function addUnmatched2bToBooks() {
+      if (!unmatched2bRows.length) { showToast("No 2B-only invoices. Reconcile first.", "error"); return; }
+      const added = unmatched2bRows.map((r, i) => ({
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + i),
+        vendor: "", gstin: r.gstin || "", invoiceNo: r.invoiceNo || "", date: "",
+        hsn: "", taxable: String(r.taxable || ""), cgst: String(r.cgst || ""),
+        sgst: String(r.sgst || ""), igst: String(r.igst || ""), total: String(r.total || ""),
+        ledger: "Purchase Account", itcType: "Input goods",
+        risk: "", reco: "", recoNote: "", raw: ""
+      }));
+      const n = added.length;
+      bills = bills.concat(added);
+      reconcileBills(); // re-match so the new rows pair with their 2B entries and exceptions refresh
+      setStatus(`Added ${n} 2B-only invoice(s) to books for review.`);
+      addAudit(`Added ${n} 2B-only invoice(s) to the book register for review.`);
+      showToast(`Added ${n} invoice(s) from 2B. Fill in vendor & date, then verify.`, "success");
+    }
+
+    // =============================================================
     // ACTION CENTER
     // =============================================================
 
     function buildActions() {
       const actions = [];
+      const returnPeriod = (els.returnPeriod && els.returnPeriod.value) || "";
 
       bills.forEach(bill => {
+        if (invoicePeriodMismatch(bill, returnPeriod)) {
+          actions.push({
+            type: "Wrong period",
+            title: `${bill.vendor || "Unknown"} — ${bill.invoiceNo || "No inv #"}`,
+            detail: `Invoice dated ${bill.date} (${parseInvoiceMonth(bill.date)}) is outside the return period ${returnPeriod}. Confirm the period or exclude this bill.`
+          });
+        }
         if (bill.risk === "Duplicate") {
           actions.push({
             type: "Duplicate",
@@ -2655,6 +2747,18 @@ Grand Total: 5900`;
       if (!file) return;
       loadGstr2bCsv(await file.text());
     });
+
+    // Import existing bill register from CSV
+    document.getElementById("billsCsvFile").addEventListener("change", async event => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      importBillsCsv(await file.text());
+      event.target.value = ""; // allow re-importing the same file
+    });
+    document.getElementById("billsCsvTemplateBtn").addEventListener("click", downloadBillsTemplate);
+
+    // Add 2B-only invoices to the book register
+    document.getElementById("add2bToBooksBtn").addEventListener("click", addUnmatched2bToBooks);
 
     // Main actions
     els.parse.addEventListener("click", parseCurrentText);

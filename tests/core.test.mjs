@@ -8,6 +8,7 @@ import {
   gstinCheckDigit, gstinChecksumOk, isValidGstin, gstinStateCode,
   billGst, rowStatus, statusBadgeClass,
   parseCsv, normalizeHeader, getByHeader,
+  parseInvoiceMonth, invoicePeriodMismatch,
 } from "../assets/js/core.mjs";
 
 // ---------- normalizeNumber ----------
@@ -115,4 +116,24 @@ test("getByHeader resolves aliases case/space/punctuation-insensitively", () => 
   assert.equal(getByHeader(record, ["Invoice No", "Invoice Number"]), "INV1");
   assert.equal(getByHeader(record, ["Nope"]), "");
   assert.equal(normalizeHeader("Invoice No."), "invoiceno");
+});
+
+// ---------- dates / return period ----------
+test("parseInvoiceMonth handles the common invoice date formats", () => {
+  assert.equal(parseInvoiceMonth("12/05/2026"), "2026-05"); // DD/MM/YYYY
+  assert.equal(parseInvoiceMonth("18-05-2026"), "2026-05");
+  assert.equal(parseInvoiceMonth("21 May 2026"), "2026-05");
+  assert.equal(parseInvoiceMonth("09.06.26"), "2026-06");   // 2-digit year
+  assert.equal(parseInvoiceMonth("2026-05-31"), "2026-05"); // ISO
+  assert.equal(parseInvoiceMonth("2026-05"), "2026-05");
+  assert.equal(parseInvoiceMonth("garbage"), "");
+  assert.equal(parseInvoiceMonth("12/13/2026"), "");        // month 13 invalid (day-first)
+  assert.equal(parseInvoiceMonth(""), "");
+});
+
+test("invoicePeriodMismatch flags only confidently-out-of-period dates", () => {
+  assert.equal(invoicePeriodMismatch({ date: "12/05/2026" }, "2026-05"), false); // in period
+  assert.equal(invoicePeriodMismatch({ date: "12/04/2026" }, "2026-05"), true);  // prior month
+  assert.equal(invoicePeriodMismatch({ date: "garbage" }, "2026-05"), false);    // unparseable → no flag
+  assert.equal(invoicePeriodMismatch({ date: "12/04/2026" }, ""), false);        // no period → no flag
 });

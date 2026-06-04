@@ -169,6 +169,13 @@
           <button class="btn btn-secondary" id="sampleBtn">Sample</button>
           <button class="btn btn-secondary" id="clearBtn">Clear</button>
         </div>
+
+        <!-- Import an existing bill register (Excel/CSV) -->
+        <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);">
+          <label for="billsCsvFile" style="font-size:11px;color:var(--ink-muted);">Import bills from CSV (existing register)</label>
+          <input id="billsCsvFile" type="file" accept=".csv,.txt" style="margin-top:2px;">
+          <button class="btn btn-secondary" id="billsCsvTemplateBtn" style="width:100%;margin-top:5px;font-size:11px;">Download bills CSV template</button>
+        </div>
       </div>
 
       <!-- 2. Export -->
@@ -207,6 +214,9 @@
         </div>
         <div style="margin-top: 6px;">
           <button class="btn btn-secondary" id="reconCsvBtn" style="width: 100%;">Download Reco Report</button>
+        </div>
+        <div style="margin-top: 6px;">
+          <button class="btn btn-secondary" id="add2bToBooksBtn" style="width: 100%;" title="Create book entries for invoices that are in GSTR-2B but missing from your register">+ Add 2B-only invoices to books</button>
         </div>
       </div>
 

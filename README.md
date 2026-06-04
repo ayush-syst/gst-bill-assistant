@@ -33,9 +33,11 @@ CA firms drown in client purchase invoices every month — PDFs, phone photos, W
 - 📋 Paste raw text or upload `.txt` / `.csv`
 - ✦ **AI extraction** via Claude (bring your own Anthropic key) for any invoice layout
 - ⚙️ **Offline regex extraction** — works with zero API key, fully local
+- 📥 **Import an existing bill register from CSV** (header-aliased) with a downloadable template
 
 ### GST review engine
-- ✅ **GSTIN validation** — 15-char structure + state-code check, with inline feedback
+- ✅ **GSTIN validation** — 15-char structure + **official checksum** + state-code check, with
+  inline feedback and a red flag on invalid vendor GSTINs right in the register
 - 🔁 **Duplicate detection** across vendor + invoice number
 - 🚦 **Status engine** — Ready / Needs-Review / ITC-Blocked / Check-Total / Duplicate
 - 💳 **ITC classification** — Input goods / Input service / Capital goods / Blocked
@@ -43,10 +45,12 @@ CA firms drown in client purchase invoices every month — PDFs, phone photos, W
 - 🧾 **HSN-wise** and **vendor-wise** summaries (useful for GSTR-1 / GSTR-9)
 
 ### GSTR-2B reconciliation
-- Upload a 2B CSV → automatic matching of every booked bill
-- Flags **Missing in 2B**, **Mismatch**, **Blocked ITC**, **Not checked**
-- Downloadable reconciliation report + exception CSV
-- Built-in 2B CSV template
+- Upload a 2B CSV → automatic matching of every booked bill (exact, then a transparent
+  **leading-zero-tolerant** fallback so `PP/891` ↔ `PP/0891` still match)
+- Flags **Missing in 2B**, **Mismatch** (with the actual book-vs-2B amounts), **Blocked ITC**
+- **Add 2B-only invoices to books** in one click, so missed ITC isn't lost
+- **Return-period check** — flags invoices dated outside the selected filing month
+- Downloadable reconciliation report + exception CSV + built-in 2B template
 
 ### Outputs & exports
 - 🧮 **Tally** — CSV *and* native **Tally XML vouchers**
