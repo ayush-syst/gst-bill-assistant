@@ -184,6 +184,15 @@ Grand Total: 5900`;
       return String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
     }
 
+    /**
+     * Looser invoice-number key for fallback matching: strips leading zeros from
+     * each digit group (so "INV-0042" and "INV42" match). Used only as a fallback
+     * after an exact match fails, and flagged in the reco note for transparency.
+     */
+    function normalizeInvoiceLoose(value) {
+      return normalizeInvoiceNo(value).replace(/(^|[A-Z])0+(\d)/g, "$1$2");
+    }
+
     /** Escape HTML entities to prevent XSS */
     function escapeHtml(value) {
       return String(value)
@@ -807,34 +816,46 @@ Grand Total: 5900`;
         return;
       }
 
-      const index = new Map();
+      // Build exact and loose (leading-zero-insensitive) indexes by GSTIN + invoice no.
+      const exactIndex = new Map();
+      const looseIndex = new Map();
       gstr2bRows.forEach(r => {
-        index.set(`${r.gstin}|${normalizeInvoiceNo(r.invoiceNo)}`, r);
+        exactIndex.set(`${r.gstin}|${normalizeInvoiceNo(r.invoiceNo)}`, r);
+        const lk = `${r.gstin}|${normalizeInvoiceLoose(r.invoiceNo)}`;
+        if (!looseIndex.has(lk)) looseIndex.set(lk, r); // first wins; exact match is always preferred
       });
-      const seen = new Set();
+      const matchedRows = new Set();
 
       bills = bills.map(bill => {
-        const key = `${String(bill.gstin || "").toUpperCase()}|${normalizeInvoiceNo(bill.invoiceNo)}`;
-        const match = index.get(key);
+        const g = String(bill.gstin || "").toUpperCase();
+        let match = exactIndex.get(`${g}|${normalizeInvoiceNo(bill.invoiceNo)}`);
+        let loose = false;
+        if (!match) {
+          match = looseIndex.get(`${g}|${normalizeInvoiceLoose(bill.invoiceNo)}`);
+          loose = !!match;
+        }
 
         if (!match) {
           return { ...bill, reco: "Missing in 2B", recoNote: "No GSTIN + invoice match in 2B" };
         }
 
-        seen.add(key);
+        matchedRows.add(match);
         const fields = ["taxable", "cgst", "sgst", "igst", "total"];
         const mismatches = fields.filter(f => Math.abs(Number(bill[f] || 0) - Number(match[f] || 0)) > AMOUNT_TOLERANCE);
+        const loosePrefix = loose
+          ? `Matched ignoring leading zeros (books "${bill.invoiceNo}" ≈ 2B "${match.invoiceNo}"). `
+          : "";
 
         if (mismatches.length) {
           const detail = mismatches
             .map(f => `${f.toUpperCase()}: books ${money(Number(bill[f] || 0))} vs 2B ${money(Number(match[f] || 0))}`)
             .join("; ");
-          return { ...bill, reco: "Mismatch", recoNote: detail };
+          return { ...bill, reco: "Mismatch", recoNote: loosePrefix + detail };
         }
-        return { ...bill, reco: "Matched", recoNote: "" };
+        return { ...bill, reco: "Matched", recoNote: loosePrefix.trim() };
       });
 
-      unmatched2bRows = gstr2bRows.filter(r => !seen.has(`${r.gstin}|${normalizeInvoiceNo(r.invoiceNo)}`));
+      unmatched2bRows = gstr2bRows.filter(r => !matchedRows.has(r));
       detectDuplicateRisk();
       invalidateApproval();
 

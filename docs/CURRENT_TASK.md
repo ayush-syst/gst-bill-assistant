@@ -33,9 +33,12 @@
 - [x] Bumped AI model id → `claude-sonnet-4-6`
 - [x] Verified in-browser (sample→reconcile, checksum valid/typo, no console errors)
 
+**Wave 2 — Reconciliation depth ✅ DONE:**
+- [x] Leading-zero-tolerant invoice matching (exact first, then loose fallback, flagged in note)
+- [x] Unmatched-2B tracking by row identity (not key string)
+- [x] Verified in-browser: `PP/891` book ↔ `PP/0891` 2B matches via fallback; no console errors
+
 **Next waves (planned):**
-- Wave 2 — Reconciliation depth: invoice-no leading-zero tolerance (safe, fallback-only),
-  duplicate-2B handling, robust CSV header coverage.
 - Wave 3 — Code quality: extract pure functions + a `node:test` suite for the core logic.
 - Wave 4 — Polish/UX: empty states, error handling, accessibility, mobile.
 - Wave 5 — New features (highest-value first; will propose before building).
