@@ -8,7 +8,7 @@
       billGst, rowStatus, statusBadgeClass,
       parseCsv, normalizeHeader, getByHeader,
       parseInvoiceMonth, invoicePeriodMismatch,
-      reconcile, parseBillsCsv, vendorCompliance
+      reconcile, parseBillsCsv, vendorCompliance, rateWiseSummary
     } from "./core.mjs";
 
     // =============================================================
@@ -1607,6 +1607,23 @@ Grand Total: 5900`;
               <td class="num">${money(totals.total)}</td>
             </tr>
           </tfoot>
+        </table>
+      `;
+
+      // Rate-wise tax summary (GSTR-1 / 3B prep)
+      const rateRows = rateWiseSummary(bills);
+      const rt = rateRows.reduce((t, g) => {
+        t.bills += g.bills; t.taxable += g.taxable; t.cgst += g.cgst; t.sgst += g.sgst; t.igst += g.igst; t.total += g.total; return t;
+      }, { bills: 0, taxable: 0, cgst: 0, sgst: 0, igst: 0, total: 0 });
+      const rateLabel = r => r === "N/A" ? "N/A" : (r + "%");
+      els.hsnContent.innerHTML += `
+        <h3 style="font-size:14px;margin:22px 0 8px;color:var(--ink);">Rate-wise Tax Summary <span style="font-weight:400;color:var(--ink-muted);font-size:12px;">— for GSTR-1 / 3B prep</span></h3>
+        <table class="summary-table">
+          <thead><tr><th>GST Rate</th><th class="num">Invoices</th><th class="num">Taxable</th><th class="num">CGST</th><th class="num">SGST</th><th class="num">IGST</th><th class="num">Total</th></tr></thead>
+          <tbody>
+            ${rateRows.map(g => `<tr><td><strong>${rateLabel(g.rate)}</strong></td><td class="num">${g.bills}</td><td class="num">${money(g.taxable)}</td><td class="num">${money(g.cgst)}</td><td class="num">${money(g.sgst)}</td><td class="num">${money(g.igst)}</td><td class="num">${money(g.total)}</td></tr>`).join("")}
+          </tbody>
+          <tfoot><tr><td><strong>Total</strong></td><td class="num">${rt.bills}</td><td class="num">${money(rt.taxable)}</td><td class="num">${money(rt.cgst)}</td><td class="num">${money(rt.sgst)}</td><td class="num">${money(rt.igst)}</td><td class="num">${money(rt.total)}</td></tr></tfoot>
         </table>
       `;
     }

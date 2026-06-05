@@ -10,6 +10,7 @@ import {
   parseCsv, normalizeHeader, getByHeader,
   parseInvoiceMonth, invoicePeriodMismatch,
   reconcile, parseBillsCsv, vendorCompliance,
+  gstRate, rateWiseSummary,
 } from "../assets/js/core.mjs";
 
 // ---------- normalizeNumber ----------
@@ -210,4 +211,24 @@ test("vendorCompliance scores risk and sorts worst-first", () => {
   assert.equal(byName["Risky Co"].itcRisk, 180);
   assert.equal(byName["Mismatch Co"].risk, "Medium");
   assert.equal(rows[0].risk, "High");              // worst sorted first
+});
+
+// ---------- rate-wise summary ----------
+test("gstRate computes effective rate and rateWiseSummary buckets to slabs", () => {
+  assert.equal(gstRate({ taxable: "1000", cgst: "90", sgst: "90" }), 18);
+  assert.equal(gstRate({ taxable: "0" }), null);
+
+  const bills = [
+    { taxable: "1000", cgst: "90", sgst: "90", igst: "0", total: "1180" },   // 18%
+    { taxable: "2000", cgst: "0", sgst: "0", igst: "359", total: "2359" },   // ~17.95% → snaps to 18
+    { taxable: "1000", cgst: "60", sgst: "60", igst: "0", total: "1120" },   // 12%
+    { taxable: "0",    cgst: "0", sgst: "0", igst: "0", total: "0" },        // N/A
+  ];
+  const rows = rateWiseSummary(bills);
+  const byRate = Object.fromEntries(rows.map(r => [String(r.rate), r]));
+  assert.equal(byRate["18"].bills, 2);             // both 18% bills grouped
+  assert.equal(byRate["18"].taxable, 3000);
+  assert.equal(byRate["12"].bills, 1);
+  assert.ok(byRate["N/A"]);                          // zero-taxable bucket exists
+  assert.equal(rows[0].rate, "N/A");                // N/A sorts first
 });

@@ -314,3 +314,44 @@ export function vendorCompliance(bills) {
     return (order[a.risk] - order[b.risk]) || (b.total - a.total);
   });
 }
+
+// ---------- Rate-wise tax summary (GSTR-1 / 3B prep) ----------
+
+/** Effective GST rate (%) for a bill, or null if taxable is zero/unknown. */
+export function gstRate(bill) {
+  const taxable = Number(bill && bill.taxable || 0);
+  if (taxable <= 0) return null;
+  return (billGst(bill) / taxable) * 100;
+}
+
+/**
+ * Group bills into GST rate slabs (0/3/5/12/18/28%) for filing prep.
+ * A computed rate snaps to the nearest standard slab if within ~1%, else shows the actual rate.
+ * Bills with no taxable value land in an "N/A" bucket. Sorted ascending by rate.
+ */
+export function rateWiseSummary(bills, slabs = [0, 0.25, 3, 5, 12, 18, 28]) {
+  const snap = (r) => {
+    let best = slabs[0], d = Infinity;
+    for (const s of slabs) { const dd = Math.abs(s - r); if (dd < d) { d = dd; best = s; } }
+    return d <= 1 ? best : Math.round(r * 100) / 100;
+  };
+  const groups = new Map();
+  (bills || []).forEach(b => {
+    const r = gstRate(b);
+    const key = r === null ? "N/A" : snap(r);
+    if (!groups.has(key)) groups.set(key, { rate: key, bills: 0, taxable: 0, cgst: 0, sgst: 0, igst: 0, gst: 0, total: 0 });
+    const g = groups.get(key);
+    g.bills++;
+    g.taxable += Number(b.taxable || 0);
+    g.cgst += Number(b.cgst || 0);
+    g.sgst += Number(b.sgst || 0);
+    g.igst += Number(b.igst || 0);
+    g.gst += billGst(b);
+    g.total += Number(b.total || 0);
+  });
+  return [...groups.values()].sort((a, b) => {
+    const ra = a.rate === "N/A" ? -1 : a.rate;
+    const rb = b.rate === "N/A" ? -1 : b.rate;
+    return ra - rb;
+  });
+}

@@ -77,7 +77,11 @@ left on CDN on purpose — see NEXT_STEPS.)
 insight) and a **configurable 2B match tolerance** in Settings. Tested (`vendorCompliance`, 21
 tests) + verified in-browser.
 
-**Status: 9 waves + landing page shipped. App at v3.4.0, 21 tests passing.** Possible further work before deploy: README
+**Wave 10 — Rate-wise tax summary ✅ DONE:** GST-slab grouping (0/3/5/12/18/28%) in the
+"HSN & Rate" tab for GSTR-1/3B prep; tested `gstRate`/`rateWiseSummary`. Tabs relabeled.
+
+**Status: 10 waves + landing page shipped. App at v3.4.0, 22 tests passing.**
+Remaining competitor ideas (in NEXT_STEPS): many-to-many matching, GSTR-2A, net-ITC (3B) summary. Possible further work before deploy: README
 screenshots, more tests (reconcile/import as integration tests), self-host CDN libs for full
 offline, favicon/OG meta. Then the deploy decision (still deferred by user).
 
