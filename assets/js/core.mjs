@@ -194,3 +194,76 @@ export function invoicePeriodMismatch(bill, returnPeriod) {
   const im = parseInvoiceMonth(bill && bill.date);
   return im !== "" && im !== rp;
 }
+
+// ---------- Reconciliation (pure) ----------
+
+/**
+ * Reconcile booked bills against GSTR-2B rows.
+ * Exact GSTIN+invoice match first, then a leading-zero-tolerant fallback (flagged).
+ * Returns { bills: annotated copies with reco/recoNote, unmatched: 2B rows with no book match }.
+ * `money` formats amounts inside mismatch notes (defaults to plain numbers).
+ */
+export function reconcile(bills, rows, { tolerance = AMOUNT_TOLERANCE, money = (n) => String(n) } = {}) {
+  const exactIndex = new Map();
+  const looseIndex = new Map();
+  (rows || []).forEach(r => {
+    exactIndex.set(`${r.gstin}|${normalizeInvoiceNo(r.invoiceNo)}`, r);
+    const lk = `${r.gstin}|${normalizeInvoiceLoose(r.invoiceNo)}`;
+    if (!looseIndex.has(lk)) looseIndex.set(lk, r);
+  });
+  const matchedRows = new Set();
+
+  const out = (bills || []).map(bill => {
+    const g = String(bill.gstin || "").toUpperCase();
+    let match = exactIndex.get(`${g}|${normalizeInvoiceNo(bill.invoiceNo)}`);
+    let loose = false;
+    if (!match) {
+      match = looseIndex.get(`${g}|${normalizeInvoiceLoose(bill.invoiceNo)}`);
+      loose = !!match;
+    }
+    if (!match) return { ...bill, reco: "Missing in 2B", recoNote: "No GSTIN + invoice match in 2B" };
+
+    matchedRows.add(match);
+    const fields = ["taxable", "cgst", "sgst", "igst", "total"];
+    const mismatches = fields.filter(f => Math.abs(Number(bill[f] || 0) - Number(match[f] || 0)) > tolerance);
+    const loosePrefix = loose
+      ? `Matched ignoring leading zeros (books "${bill.invoiceNo}" ≈ 2B "${match.invoiceNo}"). `
+      : "";
+    if (mismatches.length) {
+      const detail = mismatches
+        .map(f => `${f.toUpperCase()}: books ${money(Number(bill[f] || 0))} vs 2B ${money(Number(match[f] || 0))}`)
+        .join("; ");
+      return { ...bill, reco: "Mismatch", recoNote: loosePrefix + detail };
+    }
+    return { ...bill, reco: "Matched", recoNote: loosePrefix.trim() };
+  });
+
+  return { bills: out, unmatched: (rows || []).filter(r => !matchedRows.has(r)) };
+}
+
+// ---------- CSV → bills (pure) ----------
+
+/** Map a bills CSV (header row + data) into normalized bill field objects (no id). */
+export function parseBillsCsv(text) {
+  const rows = parseCsv(text);
+  if (rows.length < 2) return [];
+  const headers = rows[0].map(h => h.trim());
+  return rows.slice(1).map(row => {
+    const rec = {};
+    headers.forEach((h, i) => { rec[h] = row[i] || ""; });
+    return {
+      vendor:    String(getByHeader(rec, ["Vendor", "Vendor Name", "Supplier", "Supplier Name"])).trim(),
+      gstin:     String(getByHeader(rec, ["GSTIN", "Vendor GSTIN", "Supplier GSTIN", "GSTIN of supplier"])).trim().toUpperCase(),
+      invoiceNo: String(getByHeader(rec, ["Invoice No", "Invoice Number", "Bill No", "Bill Number"])).trim(),
+      date:      String(getByHeader(rec, ["Date", "Invoice Date"])).trim(),
+      hsn:       String(getByHeader(rec, ["HSN", "HSN/SAC", "HSN Code", "SAC", "SAC Code"])).trim(),
+      taxable:   normalizeNumber(getByHeader(rec, ["Taxable", "Taxable Value", "Taxable Amount"])),
+      cgst:      normalizeNumber(getByHeader(rec, ["CGST", "Central Tax"])),
+      sgst:      normalizeNumber(getByHeader(rec, ["SGST", "State Tax"])),
+      igst:      normalizeNumber(getByHeader(rec, ["IGST", "Integrated Tax"])),
+      total:     normalizeNumber(getByHeader(rec, ["Total", "Invoice Value", "Total Invoice Value", "Total Amount"])),
+      ledger:    String(getByHeader(rec, ["Ledger"]) || "Purchase Account"),
+      itcType:   String(getByHeader(rec, ["ITC Type", "ITC"]) || "Input goods"),
+    };
+  }).filter(b => b.vendor || b.gstin || b.invoiceNo || b.taxable);
+}

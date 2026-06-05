@@ -9,6 +9,7 @@ import {
   billGst, rowStatus, statusBadgeClass,
   parseCsv, normalizeHeader, getByHeader,
   parseInvoiceMonth, invoicePeriodMismatch,
+  reconcile, parseBillsCsv,
 } from "../assets/js/core.mjs";
 
 // ---------- normalizeNumber ----------
@@ -136,4 +137,58 @@ test("invoicePeriodMismatch flags only confidently-out-of-period dates", () => {
   assert.equal(invoicePeriodMismatch({ date: "12/04/2026" }, "2026-05"), true);  // prior month
   assert.equal(invoicePeriodMismatch({ date: "garbage" }, "2026-05"), false);    // unparseable → no flag
   assert.equal(invoicePeriodMismatch({ date: "12/04/2026" }, ""), false);        // no period → no flag
+});
+
+// ---------- reconcile (integration) ----------
+const b = (gstin, invoiceNo, amts) => ({ gstin, invoiceNo, ...amts });
+
+test("reconcile: exact match, mismatch, missing-in-2B, and unmatched 2B rows", () => {
+  const bills = [
+    b("27ABCDE1234F1Z0", "INV-1", { taxable: "1000", cgst: "90", sgst: "90", igst: "0", total: "1180" }),
+    b("27ABCDE1234F1Z0", "INV-2", { taxable: "5000", cgst: "0", sgst: "0", igst: "900", total: "5900" }),
+    b("27ABCDE1234F1Z0", "INV-9", { taxable: "300", cgst: "27", sgst: "27", igst: "0", total: "354" }),
+  ];
+  const rows = [
+    { gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "1000", cgst: "90", sgst: "90", igst: "0", total: "1180" },
+    { gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-2", taxable: "4500", cgst: "0", sgst: "0", igst: "810", total: "5310" }, // differs
+    { gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-7", taxable: "200", cgst: "18", sgst: "18", igst: "0", total: "236" },   // only in 2B
+  ];
+  const { bills: out, unmatched } = reconcile(bills, rows);
+  assert.equal(out[0].reco, "Matched");
+  assert.equal(out[1].reco, "Mismatch");
+  assert.match(out[1].recoNote, /TAXABLE: books 5000 vs 2B 4500/);
+  assert.equal(out[2].reco, "Missing in 2B");
+  assert.equal(unmatched.length, 1);
+  assert.equal(unmatched[0].invoiceNo, "INV-7");
+});
+
+test("reconcile: leading-zero fallback matches and is flagged", () => {
+  const bills = [b("27ABCDE1234F1Z0", "PP/891", { taxable: "8600", cgst: "774", sgst: "774", igst: "0", total: "10148" })];
+  const rows = [{ gstin: "27ABCDE1234F1Z0", invoiceNo: "PP/0891", taxable: "8600", cgst: "774", sgst: "774", igst: "0", total: "10148" }];
+  const { bills: out, unmatched } = reconcile(bills, rows);
+  assert.equal(out[0].reco, "Matched");
+  assert.match(out[0].recoNote, /ignoring leading zeros/);
+  assert.equal(unmatched.length, 0);
+});
+
+test("reconcile: amount diffs within tolerance are still Matched", () => {
+  const bills = [b("27ABCDE1234F1Z0", "INV-1", { taxable: "1000", total: "1180" })];
+  const rows = [{ gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "1001", total: "1181" }]; // off by 1 (≤2)
+  assert.equal(reconcile(bills, rows)[ "bills" ][0].reco, "Matched");
+});
+
+// ---------- parseBillsCsv (integration) ----------
+test("parseBillsCsv maps header-aliased columns and skips empty rows", () => {
+  const csv = [
+    "Supplier Name,Vendor GSTIN,Bill No,Invoice Date,Taxable Value,CGST,SGST,IGST,Total",
+    'Foo Traders,27abcde1234f1z0,IMP-1,03/05/2026,"2,000",180,180,0,2360',
+    ",,,,,,,,",
+  ].join("\n");
+  const out = parseBillsCsv(csv);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].vendor, "Foo Traders");
+  assert.equal(out[0].gstin, "27ABCDE1234F1Z0"); // upper-cased
+  assert.equal(out[0].invoiceNo, "IMP-1");
+  assert.equal(out[0].taxable, "2000");          // comma stripped
+  assert.equal(out[0].ledger, "Purchase Account"); // default
 });

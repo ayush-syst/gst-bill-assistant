@@ -7,7 +7,8 @@
       gstinCheckDigit, gstinChecksumOk, isValidGstin, gstinStateCode,
       billGst, rowStatus, statusBadgeClass,
       parseCsv, normalizeHeader, getByHeader,
-      parseInvoiceMonth, invoicePeriodMismatch
+      parseInvoiceMonth, invoicePeriodMismatch,
+      reconcile, parseBillsCsv
     } from "./core.mjs";
 
     // =============================================================
@@ -723,46 +724,10 @@ Grand Total: 5900`;
         return;
       }
 
-      // Build exact and loose (leading-zero-insensitive) indexes by GSTIN + invoice no.
-      const exactIndex = new Map();
-      const looseIndex = new Map();
-      gstr2bRows.forEach(r => {
-        exactIndex.set(`${r.gstin}|${normalizeInvoiceNo(r.invoiceNo)}`, r);
-        const lk = `${r.gstin}|${normalizeInvoiceLoose(r.invoiceNo)}`;
-        if (!looseIndex.has(lk)) looseIndex.set(lk, r); // first wins; exact match is always preferred
-      });
-      const matchedRows = new Set();
-
-      bills = bills.map(bill => {
-        const g = String(bill.gstin || "").toUpperCase();
-        let match = exactIndex.get(`${g}|${normalizeInvoiceNo(bill.invoiceNo)}`);
-        let loose = false;
-        if (!match) {
-          match = looseIndex.get(`${g}|${normalizeInvoiceLoose(bill.invoiceNo)}`);
-          loose = !!match;
-        }
-
-        if (!match) {
-          return { ...bill, reco: "Missing in 2B", recoNote: "No GSTIN + invoice match in 2B" };
-        }
-
-        matchedRows.add(match);
-        const fields = ["taxable", "cgst", "sgst", "igst", "total"];
-        const mismatches = fields.filter(f => Math.abs(Number(bill[f] || 0) - Number(match[f] || 0)) > AMOUNT_TOLERANCE);
-        const loosePrefix = loose
-          ? `Matched ignoring leading zeros (books "${bill.invoiceNo}" ≈ 2B "${match.invoiceNo}"). `
-          : "";
-
-        if (mismatches.length) {
-          const detail = mismatches
-            .map(f => `${f.toUpperCase()}: books ${money(Number(bill[f] || 0))} vs 2B ${money(Number(match[f] || 0))}`)
-            .join("; ");
-          return { ...bill, reco: "Mismatch", recoNote: loosePrefix + detail };
-        }
-        return { ...bill, reco: "Matched", recoNote: loosePrefix.trim() };
-      });
-
-      unmatched2bRows = gstr2bRows.filter(r => !matchedRows.has(r));
+      // Pure matching lives in core.mjs (covered by tests); app supplies the money formatter.
+      const result = reconcile(bills, gstr2bRows, { tolerance: AMOUNT_TOLERANCE, money });
+      bills = result.bills;
+      unmatched2bRows = result.unmatched;
       detectDuplicateRisk();
       invalidateApproval();
 
@@ -779,30 +744,10 @@ Grand Total: 5900`;
     // =============================================================
 
     function importBillsCsv(text) {
-      const rows = parseCsv(text);
-      if (rows.length < 2) { showToast("Could not read CSV (need a header row + data).", "error"); return; }
-      const headers = rows[0].map(h => h.trim());
-      const imported = rows.slice(1).map((row, i) => {
-        const rec = {};
-        headers.forEach((h, idx) => { rec[h] = row[idx] || ""; });
-        return {
-          id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + i),
-          vendor:    String(getByHeader(rec, ["Vendor", "Vendor Name", "Supplier", "Supplier Name"])).trim(),
-          gstin:     String(getByHeader(rec, ["GSTIN", "Vendor GSTIN", "Supplier GSTIN", "GSTIN of supplier"])).trim().toUpperCase(),
-          invoiceNo: String(getByHeader(rec, ["Invoice No", "Invoice Number", "Bill No", "Bill Number"])).trim(),
-          date:      String(getByHeader(rec, ["Date", "Invoice Date"])).trim(),
-          hsn:       String(getByHeader(rec, ["HSN", "HSN/SAC", "HSN Code", "SAC", "SAC Code"])).trim(),
-          taxable:   normalizeNumber(getByHeader(rec, ["Taxable", "Taxable Value", "Taxable Amount"])),
-          cgst:      normalizeNumber(getByHeader(rec, ["CGST", "Central Tax"])),
-          sgst:      normalizeNumber(getByHeader(rec, ["SGST", "State Tax"])),
-          igst:      normalizeNumber(getByHeader(rec, ["IGST", "Integrated Tax"])),
-          total:     normalizeNumber(getByHeader(rec, ["Total", "Invoice Value", "Total Invoice Value", "Total Amount"])),
-          ledger:    String(getByHeader(rec, ["Ledger"]) || "Purchase Account"),
-          itcType:   String(getByHeader(rec, ["ITC Type", "ITC"]) || "Input goods"),
-          risk: "", reco: "", recoNote: "", raw: ""
-        };
-      }).filter(b => b.vendor || b.gstin || b.invoiceNo || b.taxable);
-
+      const imported = parseBillsCsv(text).map((b, i) => ({
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + i),
+        ...b, risk: "", reco: "", recoNote: "", raw: ""
+      }));
       if (!imported.length) { showToast("No usable rows found in CSV.", "error"); return; }
       bills = bills.concat(imported);
       detectDuplicateRisk();
