@@ -6,6 +6,14 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (competitor-inspired — v3.4)
+- **Vendor compliance scorecard.** The Vendor Summary tab is now a supplier-compliance view with
+  per-vendor **match rate** and a **risk badge** (High = invoices missing in 2B → supplier likely
+  hasn't filed; Medium = value mismatches; Low = all matched), sorted worst-risk first — the kind
+  of ITC-leakage insight ClearTax/GSTHero/IRIS charge for. Tested pure `vendorCompliance()`.
+- **Configurable 2B match tolerance.** Set the rupee rounding tolerance for reconciliation in
+  Settings (default ₹2) — mirrors the "customizable matching rules" of paid tools.
+
 ### Added (polish — v3.3, "four nice things")
 - **Full backup & restore.** Download *all* clients to one JSON file and restore them — plus a
   "Saved HH:MM:SS" timestamp and an in-app note explaining data is auto-saved in the browser.

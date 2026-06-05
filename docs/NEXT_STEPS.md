@@ -43,6 +43,10 @@
       Pairs naturally with Vercel/Cloudflare hosting. *Warn + suggest model.*
 - [ ] **GSTR-2A support** + period-over-period ITC carry-forward / provisional-ITC tracking.
 - [ ] **More export targets** — Busy, Marg, Vyapar; and a clean generic JSON/CSV schema.
+- [ ] **More competitor-inspired features** (researched ClearTax/GSTHero/IRIS, 2026): many-to-many
+      / 1-to-many invoice matching; GSTR-2A (not just 2B); rate-wise tax summary (5/12/18/28%);
+      GSTR-3B-style net-ITC summary; provisional-ITC aging across months. (Done so far: vendor
+      compliance scorecard, configurable match tolerance.)
 - [ ] **WhatsApp document intake** — a smoother path from forwarded files to the tool (the
       original differentiator idea).
 - [ ] **Pricing/landing page** + a real go-to-market for small CA firms.

@@ -72,7 +72,12 @@ README; **PDF.js self-hosted** (offline PDF extraction, verified); integration t
 reconcile + CSV import (20 tests total); refreshed the stale in-app disclaimer. (Tesseract OCR
 left on CDN on purpose — see NEXT_STEPS.)
 
-**Status: all 5 planned waves + landing page + 4 polish features + repo/offline polish shipped.** Possible further work before deploy: README
+**Wave 9 — Competitor-inspired (v3.4.0) ✅ DONE:** researched ClearTax/GSTHero/IRIS; added a
+**vendor compliance scorecard** (per-vendor match rate + risk badge, worst-first — ITC-leakage
+insight) and a **configurable 2B match tolerance** in Settings. Tested (`vendorCompliance`, 21
+tests) + verified in-browser.
+
+**Status: 9 waves + landing page shipped. App at v3.4.0, 21 tests passing.** Possible further work before deploy: README
 screenshots, more tests (reconcile/import as integration tests), self-host CDN libs for full
 offline, favicon/OG meta. Then the deploy decision (still deferred by user).
 

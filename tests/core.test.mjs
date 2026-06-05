@@ -9,7 +9,7 @@ import {
   billGst, rowStatus, statusBadgeClass,
   parseCsv, normalizeHeader, getByHeader,
   parseInvoiceMonth, invoicePeriodMismatch,
-  reconcile, parseBillsCsv,
+  reconcile, parseBillsCsv, vendorCompliance,
 } from "../assets/js/core.mjs";
 
 // ---------- normalizeNumber ----------
@@ -191,4 +191,23 @@ test("parseBillsCsv maps header-aliased columns and skips empty rows", () => {
   assert.equal(out[0].invoiceNo, "IMP-1");
   assert.equal(out[0].taxable, "2000");          // comma stripped
   assert.equal(out[0].ledger, "Purchase Account"); // default
+});
+
+// ---------- vendorCompliance ----------
+test("vendorCompliance scores risk and sorts worst-first", () => {
+  const bills = [
+    { vendor: "Good Co", gstin: "27ABCDE1234F1Z0", reco: "Matched", cgst: "90", sgst: "90", taxable: "1000", total: "1180", itcType: "Input goods", risk: "" },
+    { vendor: "Good Co", gstin: "27ABCDE1234F1Z0", reco: "Matched", cgst: "45", sgst: "45", taxable: "500", total: "590", itcType: "Input goods", risk: "" },
+    { vendor: "Risky Co", gstin: "29AAICA3918J1ZE", reco: "Missing in 2B", igst: "180", taxable: "1000", total: "1180", itcType: "Input goods", risk: "" },
+    { vendor: "Mismatch Co", gstin: "24AABCP1234K1ZP", reco: "Mismatch", cgst: "60", sgst: "60", taxable: "700", total: "820", itcType: "Input goods", risk: "" },
+  ];
+  const rows = vendorCompliance(bills);
+  const byName = Object.fromEntries(rows.map(r => [r.vendor, r]));
+  assert.equal(byName["Good Co"].matchRate, 100);
+  assert.equal(byName["Good Co"].risk, "Low");
+  assert.equal(byName["Good Co"].itcReady, 270);
+  assert.equal(byName["Risky Co"].risk, "High");   // missing in 2B
+  assert.equal(byName["Risky Co"].itcRisk, 180);
+  assert.equal(byName["Mismatch Co"].risk, "Medium");
+  assert.equal(rows[0].risk, "High");              // worst sorted first
 });

@@ -8,14 +8,15 @@
       billGst, rowStatus, statusBadgeClass,
       parseCsv, normalizeHeader, getByHeader,
       parseInvoiceMonth, invoicePeriodMismatch,
-      reconcile, parseBillsCsv
+      reconcile, parseBillsCsv, vendorCompliance
     } from "./core.mjs";
 
     // =============================================================
     // CONFIG — app-level constants (domain tunables are in core.mjs)
     // =============================================================
-    const APP_VERSION = "3.3.0";
+    const APP_VERSION = "3.4.0";
     const AI_MODEL = "claude-sonnet-4-6";       // Anthropic model id used for AI features
+    let matchTolerance = AMOUNT_TOLERANCE;       // Rs. 2B-match tolerance (configurable in Settings)
 
     // =============================================================
     // DOM REFERENCES
@@ -725,7 +726,7 @@ Grand Total: 5900`;
       }
 
       // Pure matching lives in core.mjs (covered by tests); app supplies the money formatter.
-      const result = reconcile(bills, gstr2bRows, { tolerance: AMOUNT_TOLERANCE, money });
+      const result = reconcile(bills, gstr2bRows, { tolerance: matchTolerance, money });
       bills = result.bills;
       unmatched2bRows = result.unmatched;
       detectDuplicateRisk();
@@ -1616,38 +1617,26 @@ Grand Total: 5900`;
 
     function renderVendorSummary() {
       if (!bills.length) {
-        els.vendorContent.innerHTML = '<div class="summary-empty">Extract bills to see vendor-wise summary.</div>';
+        els.vendorContent.innerHTML = '<div class="summary-empty">Extract bills to see the vendor compliance scorecard.</div>';
         return;
       }
 
-      const groups = {};
-      bills.forEach(b => {
-        const vendor = b.vendor || "Unknown";
-        if (!groups[vendor]) groups[vendor] = { gstin: b.gstin, count: 0, taxable: 0, gst: 0, total: 0, itcReady: 0, itcRisk: 0 };
-        groups[vendor].count++;
-        groups[vendor].taxable += Number(b.taxable || 0);
-        const gst = billGst(b);
-        groups[vendor].gst += gst;
-        groups[vendor].total += Number(b.total || 0);
-        if (b.reco === "Matched" && b.itcType !== "Blocked / review" && b.risk !== "Duplicate") {
-          groups[vendor].itcReady += gst;
-        } else if (b.reco) {
-          groups[vendor].itcRisk += gst;
-        }
-      });
+      const rows = vendorCompliance(bills);
+      const totals = rows.reduce((t, g) => {
+        t.bills += g.bills; t.taxable += g.taxable; t.gst += g.gst; t.total += g.total;
+        t.itcReady += g.itcReady; t.itcRisk += g.itcRisk; return t;
+      }, { bills: 0, taxable: 0, gst: 0, total: 0, itcReady: 0, itcRisk: 0 });
 
-      const sorted = Object.entries(groups).sort((a, b) => b[1].total - a[1].total);
-      const totals = { count: 0, taxable: 0, gst: 0, total: 0, itcReady: 0, itcRisk: 0 };
-      sorted.forEach(([, g]) => {
-        totals.count += g.count;
-        totals.taxable += g.taxable;
-        totals.gst += g.gst;
-        totals.total += g.total;
-        totals.itcReady += g.itcReady;
-        totals.itcRisk += g.itcRisk;
-      });
+      const riskCls = { High: "badge-bad", Medium: "badge-warn", Low: "badge-ok", "—": "badge-neutral" };
+      const riskTip = {
+        High: "Some invoices are missing in GSTR-2B — supplier may not have filed. ITC at risk.",
+        Medium: "Value mismatches against 2B. Verify before claiming ITC.",
+        Low: "All invoices matched in 2B.",
+        "—": "Not reconciled yet. Load GSTR-2B and reconcile.",
+      };
 
       els.vendorContent.innerHTML = `
+        <p class="section-hint" style="margin:0 0 8px;">Supplier compliance scorecard — vendors whose invoices are missing or mismatched in GSTR-2B put your ITC at risk. Reconcile first for match rates.</p>
         <table class="summary-table">
           <thead>
             <tr>
@@ -1656,20 +1645,22 @@ Grand Total: 5900`;
               <th class="num">Bills</th>
               <th class="num">Taxable</th>
               <th class="num">GST</th>
-              <th class="num">Total</th>
+              <th class="num">Match %</th>
+              <th>Risk</th>
               <th class="num">ITC Ready</th>
               <th class="num">ITC Risk</th>
             </tr>
           </thead>
           <tbody>
-            ${sorted.map(([vendor, g]) => `
+            ${rows.map(g => `
               <tr>
-                <td><strong>${escapeHtml(vendor)}</strong></td>
+                <td><strong>${escapeHtml(g.vendor)}</strong></td>
                 <td style="font-size:12px;color:var(--ink-secondary)">${escapeHtml(g.gstin || "—")}</td>
-                <td class="num">${g.count}</td>
+                <td class="num">${g.bills}</td>
                 <td class="num">${money(g.taxable)}</td>
                 <td class="num">${money(g.gst)}</td>
-                <td class="num">${money(g.total)}</td>
+                <td class="num">${g.matchRate === null ? "—" : g.matchRate + "%"}</td>
+                <td><span class="badge ${riskCls[g.risk]}" title="${riskTip[g.risk]}">${g.risk}</span></td>
                 <td class="num" style="color:var(--success)">${money(g.itcReady)}</td>
                 <td class="num" style="color:var(--warning)">${money(g.itcRisk)}</td>
               </tr>
@@ -1678,10 +1669,11 @@ Grand Total: 5900`;
           <tfoot>
             <tr>
               <td colspan="2"><strong>Total</strong></td>
-              <td class="num">${totals.count}</td>
+              <td class="num">${totals.bills}</td>
               <td class="num">${money(totals.taxable)}</td>
               <td class="num">${money(totals.gst)}</td>
-              <td class="num">${money(totals.total)}</td>
+              <td class="num">—</td>
+              <td></td>
               <td class="num" style="color:var(--success)">${money(totals.itcReady)}</td>
               <td class="num" style="color:var(--warning)">${money(totals.itcRisk)}</td>
             </tr>
@@ -2716,6 +2708,8 @@ Grand Total: 5900`;
       set("settingApiKey", saved.apiKey || (els.aiApiKey ? els.aiApiKey.value : ""));
       set("settingDefaultLedger", saved.defaultLedger);
       set("settingDefaultItc", saved.defaultItc);
+      const tolEl = document.getElementById("settingTolerance");
+      if (tolEl) tolEl.value = saved.matchTolerance != null ? saved.matchTolerance : AMOUNT_TOLERANCE;
       overlay.style.display = "flex";
     }
 
@@ -2731,9 +2725,11 @@ Grand Total: 5900`;
         firmGstin:     get("settingFirmGstin"),
         apiKey:        get("settingApiKey"),
         defaultLedger: get("settingDefaultLedger"),
-        defaultItc:    get("settingDefaultItc")
+        defaultItc:    get("settingDefaultItc"),
+        matchTolerance: Math.max(0, Number(get("settingTolerance")) || AMOUNT_TOLERANCE)
       };
       localStorage.setItem("gstSettings", JSON.stringify(settings));
+      matchTolerance = settings.matchTolerance;
       // Apply API key immediately
       if (settings.apiKey && els.aiApiKey) els.aiApiKey.value = settings.apiKey;
       closeSettings();
@@ -2745,6 +2741,7 @@ Grand Total: 5900`;
       try {
         const saved = JSON.parse(localStorage.getItem("gstSettings")||"{}");
         if (saved.apiKey && els.aiApiKey) els.aiApiKey.value = saved.apiKey;
+        if (saved.matchTolerance != null) matchTolerance = Math.max(0, Number(saved.matchTolerance) || AMOUNT_TOLERANCE);
       } catch(_) {}
     }
 

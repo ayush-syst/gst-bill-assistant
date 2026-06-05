@@ -267,3 +267,50 @@ export function parseBillsCsv(text) {
     };
   }).filter(b => b.vendor || b.gstin || b.invoiceNo || b.taxable);
 }
+
+// ---------- Vendor compliance scorecard ----------
+
+/**
+ * Per-vendor reconciliation scorecard (borrowed from how the big GST tools surface
+ * "supplier compliance" / ITC-leakage risk). Returns rows sorted worst-risk first.
+ * Risk: High = some invoices missing in 2B (supplier likely hasn't filed),
+ *       Medium = value mismatches, Low = all matched, "—" = not reconciled yet.
+ */
+export function vendorCompliance(bills) {
+  const groups = new Map();
+  (bills || []).forEach(b => {
+    const vendor = b.vendor || "Unknown";
+    if (!groups.has(vendor)) {
+      groups.set(vendor, {
+        vendor, gstin: b.gstin || "",
+        bills: 0, taxable: 0, gst: 0, total: 0, itcReady: 0, itcRisk: 0,
+        matched: 0, missing: 0, mismatch: 0, notChecked: 0,
+      });
+    }
+    const g = groups.get(vendor);
+    if (!g.gstin && b.gstin) g.gstin = b.gstin;
+    const gst = billGst(b);
+    g.bills++;
+    g.taxable += Number(b.taxable || 0);
+    g.gst += gst;
+    g.total += Number(b.total || 0);
+    const reco = b.reco || "Not checked";
+    if (reco === "Matched") g.matched++;
+    else if (reco === "Missing in 2B") g.missing++;
+    else if (reco === "Mismatch") g.mismatch++;
+    else g.notChecked++;
+    if (reco === "Matched" && b.itcType !== "Blocked / review" && b.risk !== "Duplicate") g.itcReady += gst;
+    else if (b.reco) g.itcRisk += gst;
+  });
+
+  return [...groups.values()].map(g => {
+    const checked = g.matched + g.missing + g.mismatch;
+    const matchRate = checked ? Math.round((g.matched / checked) * 100) : null;
+    let risk = "—";
+    if (checked) risk = g.missing > 0 ? "High" : g.mismatch > 0 ? "Medium" : "Low";
+    return { ...g, matchRate, risk };
+  }).sort((a, b) => {
+    const order = { High: 0, Medium: 1, Low: 2, "—": 3 };
+    return (order[a.risk] - order[b.risk]) || (b.total - a.total);
+  });
+}

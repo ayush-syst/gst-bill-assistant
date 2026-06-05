@@ -792,6 +792,14 @@
         </div>
       </div>
       <div class="settings-section">
+        <div class="settings-section-title">Reconciliation</div>
+        <div class="form-group">
+          <label for="settingTolerance">2B match tolerance (Rs.)</label>
+          <input id="settingTolerance" type="number" min="0" step="1" value="2">
+          <span style="font-size:11px;color:var(--ink-muted);display:block;margin-top:3px;">Amounts within this many rupees are treated as a match (handles rounding). Default 2.</span>
+        </div>
+      </div>
+      <div class="settings-section">
         <div class="settings-section-title">Data</div>
         <button class="btn btn-danger" id="clearAllDataBtn" style="width:100%;margin-bottom:8px;">🗑 Clear All Saved Data</button>
         <span style="font-size:11px;color:var(--ink-muted);">Clears auto-save, trend data, saved clients, and preferences from this browser.</span>
