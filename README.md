@@ -1,5 +1,7 @@
 # GST Bill Assistant — Purchase Review Desk for Indian CA Firms
 
+![GST Bill Assistant](assets/banner.svg)
+
 > AI-assisted GST **purchase-bill extraction**, **GSTR-2B reconciliation**, **ITC review**, and **Tally / Zoho / Excel exports** — built for the day-to-day reality of Indian Chartered Accountant firms. Runs **100% in your browser**. No server, no cloud, no data leaves the machine.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
