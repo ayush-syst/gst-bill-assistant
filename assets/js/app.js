@@ -13,7 +13,7 @@
     // =============================================================
     // CONFIG — app-level constants (domain tunables are in core.mjs)
     // =============================================================
-    const APP_VERSION = "3.2.0";
+    const APP_VERSION = "3.3.0";
     const AI_MODEL = "claude-sonnet-4-6";       // Anthropic model id used for AI features
 
     // =============================================================
@@ -574,6 +574,7 @@ Grand Total: 5900`;
 
       updateStats();
       renderActions();
+      renderRecoBar();
       renderHsnSummary();
       renderVendorSummary();
       renderClientList();
@@ -2397,6 +2398,7 @@ Grand Total: 5900`;
           indicator.classList.add("show");
           setTimeout(() => indicator.classList.remove("show"), 2000);
         }
+        updateLastSaved();
       } catch(e) { /* silent fail */ }
     }
 
@@ -2408,6 +2410,79 @@ Grand Total: 5900`;
         if (!data.clientTabs || !data.clientTabs.length) return false;
         return data;
       } catch(e) { return false; }
+    }
+
+    /** Update the "last saved" label shown in the sidebar. */
+    function updateLastSaved() {
+      const el = document.getElementById("lastSaved");
+      if (el) el.textContent = "Saved " + new Date().toLocaleTimeString("en-IN");
+    }
+
+    // =============================================================
+    // FULL BACKUP / RESTORE (all clients in one file)
+    // =============================================================
+
+    function downloadFullBackup() {
+      saveActiveTabState();
+      const data = { type: "gst-bill-assistant-backup", version: APP_VERSION, savedAt: new Date().toISOString(), clientTabs, activeTabId };
+      downloadText(`gst-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 2));
+      addAudit(`Downloaded full backup (${clientTabs.length} client(s)).`);
+      showToast(`Backup of ${clientTabs.length} client(s) downloaded.`, "success");
+    }
+
+    function restoreFullBackup(text) {
+      let data;
+      try { data = JSON.parse(text); } catch(e) { showToast("Invalid backup file.", "error"); return; }
+      if (!data || !Array.isArray(data.clientTabs) || !data.clientTabs.length) {
+        showToast("Backup file has no clients.", "error"); return;
+      }
+      if (!confirm(`Restore ${data.clientTabs.length} client(s) from this backup? It replaces your current tabs.`)) return;
+      clientTabs = data.clientTabs;
+      activeTabId = (data.activeTabId && clientTabs.find(t => t.id === data.activeTabId)) ? data.activeTabId : clientTabs[0].id;
+      const tab = clientTabs.find(t => t.id === activeTabId) || clientTabs[0];
+      loadTabState(tab);
+      bills = tab.bills || [];
+      gstr2bRows = tab.gstr2bRows || [];
+      unmatched2bRows = [];
+      auditEvents = tab.auditEvents || [];
+      approvedAt = tab.approvedAt || "";
+      renderTabs(); render(); renderAudit(); updateWorkflow(); updateStickySummary();
+      doAutoSave(); updateLastSaved();
+      addAudit("Restored from full backup.");
+      showToast(`Restored ${clientTabs.length} client(s).`, "success");
+    }
+
+    // =============================================================
+    // RECONCILIATION STATUS BAR (visual)
+    // =============================================================
+
+    function renderRecoBar() {
+      const el = document.getElementById("recoBar");
+      if (!el) return;
+      if (!bills.length) { el.innerHTML = ""; return; }
+      const counts = { "Matched": 0, "Mismatch": 0, "Missing in 2B": 0, "Not checked": 0 };
+      bills.forEach(b => { const r = b.reco || "Not checked"; counts[r] = (counts[r] || 0) + 1; });
+      const total = bills.length;
+      const defs = [
+        { key: "Matched", cls: "seg-ok" },
+        { key: "Mismatch", cls: "seg-warn" },
+        { key: "Missing in 2B", cls: "seg-bad" },
+        { key: "Not checked", cls: "seg-neutral" },
+      ].filter(s => counts[s.key] > 0);
+      el.innerHTML = `
+        <div class="reco-bar" role="img" aria-label="Reconciliation status breakdown">
+          ${defs.map(s => `<div class="reco-seg ${s.cls}" data-reco="${s.key}" style="width:${(counts[s.key] / total * 100).toFixed(1)}%" title="${s.key}: ${counts[s.key]} — click to filter"></div>`).join("")}
+        </div>
+        <div class="reco-legend">
+          ${defs.map(s => `<span class="reco-legend-item" data-reco="${s.key}"><span class="reco-dot ${s.cls}"></span>${s.key} <b>${counts[s.key]}</b></span>`).join("")}
+        </div>`;
+      el.querySelectorAll("[data-reco]").forEach(node => {
+        node.addEventListener("click", () => {
+          els.filterReco.value = node.dataset.reco;
+          render();
+          document.getElementById("billTable").scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      });
     }
 
     // =============================================================
@@ -2760,6 +2835,46 @@ Grand Total: 5900`;
     // Add 2B-only invoices to the book register
     document.getElementById("add2bToBooksBtn").addEventListener("click", addUnmatched2bToBooks);
 
+    // Full backup / restore (all clients)
+    document.getElementById("backupAllBtn").addEventListener("click", downloadFullBackup);
+    document.getElementById("restoreAllFile").addEventListener("change", async event => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      restoreFullBackup(await file.text());
+      event.target.value = "";
+    });
+
+    // Compact / comfortable density toggle (persisted)
+    const densityBtn = document.getElementById("densityBtn");
+    function applyDensity(compact) {
+      document.body.classList.toggle("compact", compact);
+      if (densityBtn) densityBtn.textContent = compact ? "⊞ Comfort" : "⊟ Compact";
+    }
+    if (densityBtn) densityBtn.addEventListener("click", () => {
+      const compact = !document.body.classList.contains("compact");
+      applyDensity(compact);
+      localStorage.setItem("gstDensity", compact ? "1" : "0");
+    });
+    applyDensity(localStorage.getItem("gstDensity") === "1");
+
+    // Clickable metric cards → filter the register
+    function wireMetricFilter(valueId, apply, tip) {
+      const card = document.getElementById(valueId) && document.getElementById(valueId).closest(".metric");
+      if (!card) return;
+      card.classList.add("metric-clickable");
+      card.title = tip;
+      card.addEventListener("click", () => {
+        els.searchInput.value = "";
+        els.filterStatus.value = "";
+        els.filterReco.value = "";
+        apply();
+        render();
+        document.getElementById("billTable").scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+    wireMetricFilter("issueCount", () => { els.filterStatus.value = "Review"; }, "Show bills that need review");
+    wireMetricFilter("billCount", () => {}, "Show all bills (clear filters)");
+
     // Main actions
     els.parse.addEventListener("click", parseCurrentText);
 
@@ -3027,7 +3142,8 @@ Grand Total: 5900`;
     document.querySelectorAll(".js-version").forEach(el => { el.textContent = "v" + APP_VERSION; });
     // app.js is an ES module now, so expose the one function used by an inline onclick handler
     window.closeSettings = closeSettings;
-    // Start auto-save timer
+    // Persist immediately so the "last saved" time shows right away, then every 30s.
+    doAutoSave();
     setInterval(doAutoSave, 30000);
 
     // Restore dark mode preference

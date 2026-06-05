@@ -1570,3 +1570,31 @@
       color: var(--danger);
       font-weight: 600;
     }
+
+    /* Visual reconciliation status bar */
+    .reco-bar-wrap { margin-top: 16px; }
+    .reco-bar {
+      display: flex; height: 14px; border-radius: 7px; overflow: hidden;
+      background: var(--surface-alt); border: 1px solid var(--border);
+    }
+    .reco-seg { height: 100%; cursor: pointer; transition: opacity .15s; }
+    .reco-seg:hover { opacity: .82; }
+    .seg-ok { background: var(--success); }
+    .seg-warn { background: var(--warning); }
+    .seg-bad { background: var(--danger); }
+    .seg-neutral { background: var(--border-strong); }
+    .reco-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 9px; font-size: 12px; color: var(--ink-secondary); }
+    .reco-legend-item { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+    .reco-legend-item:hover { color: var(--ink); }
+    .reco-dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+
+    /* Clickable metric cards */
+    .metric-clickable { cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+    .metric-clickable:hover { border-color: var(--primary-border); box-shadow: var(--shadow); }
+
+    /* Compact density mode */
+    body.compact table td, body.compact table th { padding-top: 4px; padding-bottom: 4px; }
+    body.compact table { font-size: 12px; }
+    body.compact td input { padding: 3px 5px; font-size: 12px; }
+    body.compact .metric { padding: 12px; }
+    body.compact .card-body { padding: 14px 16px; }

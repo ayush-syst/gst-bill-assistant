@@ -95,6 +95,7 @@
         <span class="header-badge ai-badge" style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;">✦ AI</span>
         <span class="header-badge local">Local Only</span>
         <button id="darkModeBtn" class="btn btn-secondary" style="height:28px;padding:0 10px;font-size:12px;" title="Toggle dark mode">🌙 Dark</button>
+        <button id="densityBtn" class="btn btn-secondary" style="height:28px;padding:0 10px;font-size:12px;" title="Toggle compact / comfortable density">⊟ Compact</button>
         <button id="shortcutsBtn" class="btn btn-secondary" style="height:28px;padding:0 10px;font-size:12px;" title="Keyboard shortcuts">⌨ Keys</button>
         <button id="printReportBtn" class="btn btn-secondary" style="height:28px;padding:0 10px;font-size:12px;" title="Print review report">🖨 Print</button>
         <button id="settingsBtn" class="btn btn-secondary" style="height:28px;padding:0 10px;font-size:12px;" title="Settings">⚙ Settings</button>
@@ -249,8 +250,16 @@
         <div class="btn-row" style="margin-bottom: 8px;">
           <button class="btn btn-secondary" id="exportWorkFileBtn">Export JSON</button>
         </div>
-        <label for="importWorkFile">Import work file</label>
+        <label for="importWorkFile">Import work file (single client)</label>
         <input id="importWorkFile" type="file" accept=".json">
+
+        <!-- Full backup of ALL clients -->
+        <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);">
+          <div style="font-size:11px;color:var(--ink-muted);margin-bottom:5px;">🔒 Your data is saved in this browser automatically. Back up all clients to a file:</div>
+          <button class="btn btn-secondary" id="backupAllBtn" style="width:100%;margin-bottom:5px;">⬇ Download full backup</button>
+          <label for="restoreAllFile" style="font-size:11px;color:var(--ink-muted);">Restore backup (all clients)</label>
+          <input id="restoreAllFile" type="file" accept=".json">
+        </div>
       </div>
 
       <!-- Status -->
@@ -259,6 +268,7 @@
           <span class="status-dot"></span>
           <span id="statusLine" role="status" aria-live="polite">Ready for review.</span>
         </div>
+        <div id="lastSaved" style="font-size:11px;color:var(--ink-muted);margin-top:4px;"></div>
       </div>
 
       <!-- Saved Clients -->
@@ -424,6 +434,7 @@
               <div class="metric-label">Confidence</div>
             </div>
           </div>
+          <div id="recoBar" class="reco-bar-wrap"></div>
         </div>
       </div>
 

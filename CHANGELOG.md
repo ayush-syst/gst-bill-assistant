@@ -6,6 +6,15 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (polish — v3.3, "four nice things")
+- **Full backup & restore.** Download *all* clients to one JSON file and restore them — plus a
+  "Saved HH:MM:SS" timestamp and an in-app note explaining data is auto-saved in the browser.
+- **Visual reconciliation bar.** A stacked bar (Matched / Mismatch / Missing in 2B / Not checked)
+  in the insights card; click a segment or legend item to filter the register.
+- **Clickable metric cards.** Click "Need Review" to jump-filter the bill register to those rows
+  (and "Bills Extracted" to clear filters).
+- **Compact density toggle.** A denser table view for large registers, remembered per browser.
+
 ### Added (landing page)
 - **Marketing landing page** is now the homepage (`index.html`): hero, feature grid, "how it
   works", and CTAs into the tool. The app moved to **`app.html`** (same code, just renamed).

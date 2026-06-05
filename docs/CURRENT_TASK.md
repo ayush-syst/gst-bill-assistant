@@ -63,7 +63,11 @@ CTAs); the app moved to `app.html` (same code). No backend — preserves no-sign
 Decision: **login/accounts deferred** until a backend wave (user is non-technical; chose to keep it
 account-free for now — instant use is a selling point).
 
-**Status: all 5 planned waves + landing page shipped.** Possible further work before deploy: README
+**Wave 7 — "Four nice things" ✅ DONE (v3.3.0):** full backup/restore (all clients) + last-saved
+time + in-app data note; visual reconciliation bar (clickable to filter); clickable metric cards
+(Need Review → filter); compact density toggle (persisted). Verified in-browser; no console errors.
+
+**Status: all 5 planned waves + landing page + 4 polish features shipped.** Possible further work before deploy: README
 screenshots, more tests (reconcile/import as integration tests), self-host CDN libs for full
 offline, favicon/OG meta. Then the deploy decision (still deferred by user).
 
