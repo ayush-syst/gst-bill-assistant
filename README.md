@@ -95,7 +95,8 @@ cd gst-bill-assistant
 
 # 2. Run the local dev server (Node 18+)
 npm run dev
-# → http://localhost:4173
+# → http://localhost:4173          (landing page)
+# → http://localhost:4173/app.html (the tool)
 
 # 3. (optional) Run the core-logic test suite
 npm test
@@ -112,7 +113,8 @@ Click **Load Sample Data** on the welcome screen to see the full workflow with d
 
 ```
 gst-bill-assistant/
-├── index.html              # Markup + CDN libs (links the css/js below)
+├── index.html              # Marketing landing page (homepage) → links to app.html
+├── app.html                # The actual tool (markup + CDN libs; links the css/js below)
 ├── assets/
 │   ├── css/styles.css      # All styles (design tokens, components, dark mode, responsive)
 │   └── js/

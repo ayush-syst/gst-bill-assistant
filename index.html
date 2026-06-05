@@ -3,809 +3,197 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>GST Bill Assistant — Purchase Review Desk</title>
-  <meta name="description" content="GST purchase bill extraction, GSTR-2B reconciliation, ITC review, and CA-ready exports for Indian accounting firms.">
+  <title>GST Bill Assistant — Purchase bills & GSTR-2B reconciliation for CA firms</title>
+  <meta name="description" content="AI-assisted GST purchase-bill extraction, GSTR-2B reconciliation, ITC review, and Tally/Zoho/Excel exports for Indian CA firms. 100% in your browser — no signup, no server.">
+  <meta property="og:title" content="GST Bill Assistant — Purchase Review Desk for CA Firms">
+  <meta property="og:description" content="Extract purchase bills, reconcile with GSTR-2B, review ITC, and export to Tally/Zoho — all in your browser. Free & open source.">
+  <meta property="og:type" content="website">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <!-- PDF.js for PDF text extraction -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <!-- Tesseract.js for image OCR -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <link rel="stylesheet" href="assets/css/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#f1f5f9; --surface:#fff; --surface-alt:#f8fafc; --ink:#0f172a; --ink-2:#475569; --ink-muted:#94a3b8;
+      --border:#e2e8f0; --primary:#2563eb; --primary-hover:#1d4ed8; --primary-soft:#eff6ff; --primary-border:#bfdbfe;
+      --success:#059669; --success-soft:#ecfdf5; --warning:#d97706; --warning-soft:#fffbeb;
+      --radius:8px; --radius-lg:14px; --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    }
+    *,*::before,*::after{box-sizing:border-box}
+    body{margin:0;font-family:var(--font);color:var(--ink);background:var(--bg);line-height:1.6;-webkit-font-smoothing:antialiased}
+    a{color:inherit;text-decoration:none}
+    h1,h2,h3{margin:0;line-height:1.2;letter-spacing:-.02em}
+    .wrap{max-width:1100px;margin:0 auto;padding:0 24px}
+    .btn{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:15px;padding:12px 22px;border-radius:var(--radius);border:1px solid transparent;cursor:pointer;transition:.15s}
+    .btn-primary{background:var(--primary);color:#fff}
+    .btn-primary:hover{background:var(--primary-hover)}
+    .btn-ghost{background:var(--surface);color:var(--ink);border-color:var(--border)}
+    .btn-ghost:hover{border-color:var(--ink-muted)}
+    .btn:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+
+    /* Header */
+    header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+    .nav{display:flex;align-items:center;justify-content:space-between;height:62px}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px}
+    .logo{width:32px;height:32px;border-radius:8px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800}
+    .nav-links{display:flex;align-items:center;gap:24px;font-size:14px;color:var(--ink-2);font-weight:500}
+    .nav-links a:hover{color:var(--ink)}
+    @media(max-width:720px){.nav-links a:not(.btn){display:none}}
+
+    /* Hero */
+    .hero{padding:72px 0 56px;text-align:center}
+    .pill{display:inline-flex;align-items:center;gap:8px;background:var(--primary-soft);color:var(--primary-hover);border:1px solid var(--primary-border);font-size:13px;font-weight:600;padding:5px 14px;border-radius:999px;margin-bottom:22px}
+    .hero h1{font-size:clamp(32px,5vw,52px);font-weight:800;max-width:820px;margin:0 auto 18px}
+    .hero h1 .grad{background:linear-gradient(90deg,#2563eb,#0ea5e9);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .hero p.sub{font-size:clamp(16px,2.2vw,20px);color:var(--ink-2);max-width:640px;margin:0 auto 30px}
+    .cta-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+    .chips{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:30px}
+    .chip{font-size:13px;color:var(--ink-2);background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:6px 14px}
+    .chip b{color:var(--ink)}
+
+    /* Mock window */
+    .shot{max-width:960px;margin:44px auto 0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:0 20px 50px -20px rgba(15,23,42,.25);overflow:hidden}
+    .shot-bar{display:flex;gap:6px;align-items:center;padding:11px 14px;border-bottom:1px solid var(--border);background:var(--surface-alt)}
+    .dot{width:11px;height:11px;border-radius:50%}
+    .shot-body{padding:22px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    .stat{background:var(--surface-alt);border:1px solid var(--border);border-radius:10px;padding:16px}
+    .stat .n{font-size:22px;font-weight:800}
+    .stat .l{font-size:12px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
+    .stat.g .n{color:var(--success)} .stat.w .n{color:var(--warning)}
+    @media(max-width:640px){.shot-body{grid-template-columns:repeat(2,1fr)}}
+
+    /* Sections */
+    section{padding:64px 0}
+    .sec-head{text-align:center;max-width:620px;margin:0 auto 44px}
+    .sec-head h2{font-size:clamp(26px,3.4vw,36px);font-weight:800;margin-bottom:12px}
+    .sec-head p{color:var(--ink-2);font-size:16px}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+    @media(max-width:820px){.grid{grid-template-columns:1fr}}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px}
+    .card .ic{font-size:24px;margin-bottom:12px}
+    .card h3{font-size:17px;margin-bottom:6px}
+    .card p{color:var(--ink-2);font-size:14.5px;margin:0}
+
+    .alt{background:var(--surface)}
+    .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;counter-reset:s}
+    @media(max-width:820px){.steps{grid-template-columns:1fr}}
+    .step{position:relative;padding:22px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface-alt)}
+    .step .num{width:30px;height:30px;border-radius:8px;background:var(--primary);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+    .step h3{font-size:16px;margin-bottom:5px}
+    .step p{color:var(--ink-2);font-size:14px;margin:0}
+
+    /* CTA band */
+    .band{background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border-radius:var(--radius-lg);padding:48px 28px;text-align:center}
+    .band h2{font-size:clamp(24px,3.2vw,34px);margin-bottom:12px}
+    .band p{opacity:.9;max-width:540px;margin:0 auto 24px}
+    .band .btn-primary{background:#fff;color:var(--primary-hover)}
+    .band .btn-primary:hover{background:#f1f5f9}
+    .band .btn-ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.5)}
+
+    footer{padding:40px 0;border-top:1px solid var(--border);color:var(--ink-muted);font-size:13px}
+    .foot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center}
+    .disc{background:var(--warning-soft);border:1px solid #fde68a;color:#92400e;font-size:12.5px;padding:12px 16px;border-radius:10px;margin-top:18px;line-height:1.5}
+  </style>
 </head>
 <body>
-
-  <!-- ============================================================
-       HEADER
-       ============================================================ -->
-  <!-- Mobile sidebar overlay -->
-  <div class="sidebar-overlay" id="sidebarOverlay"></div>
-
-  <!-- Mobile top bar -->
-  <div class="mobile-topbar">
-    <button class="hamburger" id="hamburgerBtn" aria-label="Open menu">☰</button>
-    <span style="font-size:14px;font-weight:700;color:var(--primary);">GST Assistant</span>
-    <span class="js-version" style="font-size:11px;color:var(--ink-muted);">v3.0</span>
-  </div>
-
-  <!-- Onboarding Modal -->
-  <div class="onboard-overlay" id="onboardOverlay" style="display:none;">
-    <div class="onboard-box" role="dialog" aria-modal="true" aria-label="Welcome to GST Bill Assistant">
-      <div class="onboard-logo">GST Bill Assistant</div>
-      <div class="onboard-tagline">Purchase Review Desk for Indian CA Firms — <span class="js-version">v3.0</span></div>
-      <div class="onboard-steps">
-        <div class="onboard-step">
-          <div class="onboard-step-num">1</div>
-          <div class="onboard-step-body">
-            <div class="onboard-step-title">Upload or paste invoice text</div>
-            <div class="onboard-step-desc">Drop PDFs, images (JPG/PNG), or plain text files. Or paste OCR text directly. AI handles messy formats.</div>
-          </div>
-        </div>
-        <div class="onboard-step">
-          <div class="onboard-step-num">2</div>
-          <div class="onboard-step-body">
-            <div class="onboard-step-title">Extract bills with AI or Regex</div>
-            <div class="onboard-step-desc">AI extraction (Claude API) reads any format. Regex works offline without an API key.</div>
-          </div>
-        </div>
-        <div class="onboard-step">
-          <div class="onboard-step-num">3</div>
-          <div class="onboard-step-body">
-            <div class="onboard-step-title">Load GSTR-2B and Reconcile</div>
-            <div class="onboard-step-desc">Upload your 2B CSV. The tool matches every bill and flags missing entries, mismatches, and blocked ITC.</div>
-          </div>
-        </div>
-        <div class="onboard-step">
-          <div class="onboard-step-num">4</div>
-          <div class="onboard-step-body">
-            <div class="onboard-step-title">Approve, export, and send to client</div>
-            <div class="onboard-step-desc">CA reviewer signs off. Export to Tally CSV/XML, Zoho, or WhatsApp. Everything stays in your browser.</div>
-          </div>
-        </div>
-      </div>
-      <div class="onboard-badges">
-        <span class="onboard-badge">🔒 Local only — no server</span>
-        <span class="onboard-badge">✦ AI-powered</span>
-        <span class="onboard-badge">📄 PDF + Image upload</span>
-        <span class="onboard-badge">👥 Multi-client tabs</span>
-      </div>
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-        <button class="btn btn-primary" id="onboardStartBtn" style="flex:1;min-width:140px;">Get Started →</button>
-        <button class="btn btn-secondary" id="onboardSampleBtn" style="flex:1;min-width:140px;">Load Sample Data</button>
-      </div>
-      <div style="margin-top:12px;text-align:center;">
-        <label style="font-size:11px;color:var(--ink-muted);cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
-          <input type="checkbox" id="onboardDontShow" style="width:auto;"> Don't show again
-        </label>
-      </div>
-    </div>
-  </div>
-
-  <header class="header">
-    <div class="header-inner">
-      <div class="header-left">
-        <div class="logo-mark">G</div>
-        <span class="header-title">GST Bill Assistant</span>
-        <span class="header-sep">/</span>
-        <span class="header-subtitle">Purchase Review Desk for CA Firms</span>
-      </div>
-      <div class="header-badges">
-        <span class="header-badge version js-version">v3.0</span>
-        <span class="header-badge ai-badge" style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;">✦ AI</span>
-        <span class="header-badge local">Local Only</span>
-        <button id="darkModeBtn" class="btn btn-secondary" style="height:28px;padding:0 10px;font-size:12px;" title="Toggle dark mode">🌙 Dark</button>
-        <button id="shortcutsBtn" class="btn btn-secondary" style="height:28px;padding:0 10px;font-size:12px;" title="Keyboard shortcuts">⌨ Keys</button>
-        <button id="printReportBtn" class="btn btn-secondary" style="height:28px;padding:0 10px;font-size:12px;" title="Print review report">🖨 Print</button>
-        <button id="settingsBtn" class="btn btn-secondary" style="height:28px;padding:0 10px;font-size:12px;" title="Settings">⚙ Settings</button>
-      </div>
+  <header>
+    <div class="wrap nav">
+      <a class="brand" href="/"><span class="logo">G</span> GST Bill Assistant</a>
+      <nav class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#how">How it works</a>
+        <a href="https://github.com/ayush-syst/gst-bill-assistant" target="_blank" rel="noopener">GitHub</a>
+        <a class="btn btn-primary" href="app.html" style="padding:9px 18px;font-size:14px;">Open the app →</a>
+      </nav>
     </div>
   </header>
 
-  <!-- ============================================================
-       LAYOUT
-       ============================================================ -->
-  <div class="layout">
-
-    <!-- =========================================================
-         SIDEBAR — Input, Export, Reconcile, Actions, Work File
-         ========================================================= -->
-    <aside class="sidebar">
-
-      <!-- Workflow Progress -->
-      <div class="sidebar-section" style="padding:10px 16px;">
-        <div style="font-size:11px;font-weight:600;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">Workflow</div>
-        <div id="workflowProgress" style="display:flex;flex-direction:column;gap:3px;">
-          <div class="wf-step" id="wf1" data-done="false"><span class="wf-dot"></span><span>1. Add invoices</span></div>
-          <div class="wf-step" id="wf2" data-done="false"><span class="wf-dot"></span><span>2. Extract bills</span></div>
-          <div class="wf-step" id="wf3" data-done="false"><span class="wf-dot"></span><span>3. Load GSTR-2B</span></div>
-          <div class="wf-step" id="wf4" data-done="false"><span class="wf-dot"></span><span>4. Reconcile</span></div>
-          <div class="wf-step" id="wf5" data-done="false"><span class="wf-dot"></span><span>5. Approve &amp; Export</span></div>
-        </div>
-      </div>
-
-      <!-- AI Config -->
-      <div class="sidebar-section" style="background:var(--primary-soft);border-left:3px solid var(--primary);">
-        <div style="font-size:12px;font-weight:600;color:var(--primary-text);margin-bottom:5px;">✦ AI Engine (Claude)</div>
-        <p class="section-hint" style="margin-bottom:5px;">Powers smart extraction &amp; exception explanations. Key stays in your browser only.</p>
-        <label for="aiApiKey">Anthropic API Key</label>
-        <input id="aiApiKey" type="password" placeholder="sk-ant-..." style="margin-bottom:5px;font-size:12px;">
-        <div id="aiStatus" style="font-size:11px;color:var(--ink-muted);min-height:13px;"></div>
-      </div>
-
-      <!-- 1. Invoice Input -->
-      <div class="sidebar-section">
-        <div class="section-label">
-          <span class="section-number">1</span>
-          <span class="section-title">Add Invoices</span>
-        </div>
-
-        <!-- PDF / Image drop zone -->
-        <div class="upload-drop-zone" id="pdfDropZone">
-          <input type="file" id="pdfImageFile" accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.tiff" multiple>
-          <div class="upload-drop-zone-icon">📄</div>
-          <div class="upload-drop-zone-label">Drop PDF or Images here</div>
-          <div class="upload-drop-zone-hint">PDF, JPG, PNG, WEBP — text extracted automatically</div>
-        </div>
-        <div class="upload-progress" id="pdfUploadProgress"></div>
-
-        <!-- Text files -->
-        <div style="margin-bottom:6px;margin-top:8px;">
-          <label for="invoiceFile" style="font-size:11px;color:var(--ink-muted);">Or upload .txt / .csv</label>
-          <input id="invoiceFile" type="file" accept=".txt,.csv,.log" multiple style="margin-top:2px;">
-        </div>
-
-        <!-- Paste area -->
-        <div style="margin-bottom:8px;">
-          <label for="invoiceText">Or paste text</label>
-          <textarea id="invoiceText" spellcheck="false" placeholder="Paste invoice text here..."></textarea>
-        </div>
-
-        <div class="btn-row" style="margin-bottom:6px;">
-          <button class="btn btn-primary" id="aiExtractBtn">✦ AI Extract</button>
-          <button class="btn btn-secondary" id="parseBtn">Regex</button>
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-secondary" id="sampleBtn">Sample</button>
-          <button class="btn btn-secondary" id="clearBtn">Clear</button>
-        </div>
-
-        <!-- Import an existing bill register (Excel/CSV) -->
-        <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);">
-          <label for="billsCsvFile" style="font-size:11px;color:var(--ink-muted);">Import bills from CSV (existing register)</label>
-          <input id="billsCsvFile" type="file" accept=".csv,.txt" style="margin-top:2px;">
-          <button class="btn btn-secondary" id="billsCsvTemplateBtn" style="width:100%;margin-top:5px;font-size:11px;">Download bills CSV template</button>
-        </div>
-      </div>
-
-      <!-- 2. Export -->
-      <div class="sidebar-section">
-        <div class="section-label">
-          <span class="section-number">2</span>
-          <span class="section-title">Export</span>
-        </div>
-        <div class="btn-row" style="margin-bottom:5px;">
-          <button class="btn btn-primary" id="csvBtn">Tally CSV</button>
-          <button class="btn btn-secondary" id="zohoBtn">Zoho CSV</button>
-        </div>
-        <div class="btn-row" style="margin-bottom:5px;">
-          <button class="btn btn-secondary" id="tallyXmlBtn">Tally XML</button>
-          <button class="btn btn-secondary" id="xlsxBtn">📊 Excel</button>
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-secondary" id="whatsappBtn">📱 WhatsApp</button>
-        </div>
-      </div>
-
-      <!-- 3. Reconcile -->
-      <div class="sidebar-section">
-        <div class="section-label">
-          <span class="section-number">3</span>
-          <span class="section-title">Reconcile With GSTR-2B</span>
-        </div>
-        <p class="section-hint">Upload a 2B CSV with GSTIN, Invoice No, Taxable, CGST, SGST, IGST, Total columns.</p>
-        <div style="margin-bottom: 8px;">
-          <label for="gstrFile">Upload GSTR-2B CSV</label>
-          <input id="gstrFile" type="file" accept=".csv,.txt">
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-secondary" id="sample2bBtn">Load 2B Sample</button>
-          <button class="btn btn-primary" id="reconcileBtn">Reconcile</button>
-        </div>
-        <div style="margin-top: 6px;">
-          <button class="btn btn-secondary" id="reconCsvBtn" style="width: 100%;">Download Reco Report</button>
-        </div>
-        <div style="margin-top: 6px;">
-          <button class="btn btn-secondary" id="add2bToBooksBtn" style="width: 100%;" title="Create book entries for invoices that are in GSTR-2B but missing from your register">+ Add 2B-only invoices to books</button>
-        </div>
-      </div>
-
-      <!-- 4. Review & Follow-up -->
-      <div class="sidebar-section">
-        <div class="section-label">
-          <span class="section-number">4</span>
-          <span class="section-title">Review &amp; Follow-up</span>
-        </div>
-        <div class="btn-row" style="margin-bottom: 6px;">
-          <button class="btn btn-primary" id="smartFixBtn">Smart Fixes</button>
-          <button class="btn btn-secondary" id="messageBtn">Client Message</button>
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-secondary" id="reviewPackBtn">CA Review Pack</button>
-          <button class="btn btn-secondary" id="reviewedCsvBtn">Reviewed Export</button>
-        </div>
-      </div>
-
-      <!-- 5. Work File -->
-      <div class="sidebar-section">
-        <div class="section-label">
-          <span class="section-number">5</span>
-          <span class="section-title">Work File</span>
-        </div>
-        <div class="btn-row" style="margin-bottom: 6px;">
-          <button class="btn btn-secondary" id="saveBtn">Save Client</button>
-          <button class="btn btn-secondary" id="loadSavedBtn">Load Saved</button>
-        </div>
-        <div class="btn-row" style="margin-bottom: 8px;">
-          <button class="btn btn-secondary" id="exportWorkFileBtn">Export JSON</button>
-        </div>
-        <label for="importWorkFile">Import work file</label>
-        <input id="importWorkFile" type="file" accept=".json">
-      </div>
-
-      <!-- Status -->
-      <div class="sidebar-section" style="padding-top: 8px; padding-bottom: 12px;">
-        <div class="status-bar">
-          <span class="status-dot"></span>
-          <span id="statusLine" role="status" aria-live="polite">Ready for review.</span>
-        </div>
-      </div>
-
-      <!-- Saved Clients -->
-      <div class="sidebar-section">
-        <div class="section-label">
-          <span class="section-number">6</span>
-          <span class="section-title">Saved Clients</span>
-        </div>
-        <div id="clientListContainer" class="client-list">
-          <p class="section-hint" style="margin:0">No saved clients yet.</p>
-        </div>
-      </div>
-    </aside>
-
-    <!-- =========================================================
-         MAIN CONTENT
-         ========================================================= -->
-    <div class="content">
-
-      <!-- Firm Dashboard -->
-      <div class="card">
-        <div class="card-header">
-          <h2>Firm Dashboard</h2>
-          <p>Usage and ROI metrics.</p>
-        </div>
-        <div class="card-body">
-          <div class="metrics-grid cols-4">
-            <div class="metric">
-              <div class="metric-value" id="firmClients">1</div>
-              <div class="metric-label">Clients</div>
-            </div>
-            <div class="metric">
-              <div class="metric-value" id="hoursSaved">0h</div>
-              <div class="metric-label">Hours Saved</div>
-            </div>
-            <div class="metric">
-              <div class="metric-value" id="moneySaved">Rs.0</div>
-              <div class="metric-label">Cost Saved</div>
-            </div>
-            <div class="metric">
-              <div class="metric-value" id="suggestedPlan">Starter</div>
-              <div class="metric-label">Suggested Plan</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Client Tabs -->
-      <div class="client-tabs-wrap">
-        <div class="client-tabs-bar" id="clientTabsBar">
-          <!-- tabs injected by JS -->
-          <button class="client-tab-add" id="addClientTabBtn" title="New client tab" aria-label="Add new client tab">+</button>
-        </div>
-        <div class="client-tab-content">
-          <!-- Client Workspace -->
-          <div class="card" style="border-radius:0;border:none;border-bottom:1px solid var(--border);">
-            <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-              <div>
-                <h2>Client Workspace</h2>
-                <p>Set the client and filing period for exports and follow-ups.</p>
-              </div>
-              <div style="display:flex;gap:6px;">
-                <button class="btn btn-secondary" id="dupClientTabBtn" title="Duplicate this client tab" style="font-size:11px;padding:4px 10px;">⧉ Duplicate</button>
-              </div>
-            </div>
-            <div class="card-body">
-              <div class="form-grid">
-                <div class="form-group">
-                  <label for="clientName">Client name</label>
-                  <input id="clientName" type="text" value="Aarav Retail Pvt Ltd">
-                </div>
-                <div class="form-group">
-                  <label for="clientGstin">Client GSTIN <span class="help-icon" data-tip="15-character GST Identification Number. Format: 2 digits state code + 10 char PAN + 1 digit entity + Z + 1 check digit">?</span></label>
-                  <input id="clientGstin" type="text" value="27AAHCA1234M1ZO" maxlength="15">
-                  <span class="gstin-hint" id="gstinHint"></span>
-                </div>
-                <div class="form-group">
-                  <label for="returnPeriod">Return period <span class="help-icon" data-tip="The month for which you are reviewing purchase invoices and GSTR-2B. Use YYYY-MM format.">?</span></label>
-                  <input id="returnPeriod" type="month" value="2026-05">
-                </div>
-                <div class="form-group">
-                  <label for="preparedBy">Prepared by</label>
-                  <input id="preparedBy" type="text" value="CA Team">
-                </div>
-                <div class="form-group">
-                  <label for="staffRate">Staff cost/hr (Rs.) <span class="help-icon" data-tip="Used to calculate time saved and ROI for the Fee Calculator. Typical CA staff: Rs.200-500/hr.">?</span></label>
-                  <input id="staffRate" type="text" value="300">
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Trust Bar -->
-      <div class="trust-bar">
-        <div class="trust-item">
-          <div class="trust-item-title">Human Approval Required</div>
-          <div class="trust-item-desc">No filing automation. Reviewed exports require checklist and reviewer sign-off.</div>
-        </div>
-        <div class="trust-item">
-          <div class="trust-item-title">Local Storage Only</div>
-          <div class="trust-item-desc">Data stays in this browser. No server, no cloud. Export JSON to back up.</div>
-        </div>
-        <div class="trust-item">
-          <div class="trust-item-title">Audit-Ready Outputs</div>
-          <div class="trust-item-desc">Review packs include exceptions, risk labels, approval details, and action items.</div>
-        </div>
-      </div>
-
-      <!-- Extraction Stats -->
-      <div class="card">
-        <div class="card-header">
-          <h2>Extraction Summary</h2>
-        </div>
-        <div class="card-body">
-          <div class="metrics-grid cols-4">
-            <div class="metric">
-              <div class="metric-value" id="billCount">0</div>
-              <div class="metric-label">Bills Extracted</div>
-            </div>
-            <div class="metric">
-              <div class="metric-value" id="taxableTotal">Rs.0</div>
-              <div class="metric-label">Taxable Value</div>
-            </div>
-            <div class="metric">
-              <div class="metric-value" id="gstTotal">Rs.0</div>
-              <div class="metric-label">Total GST</div>
-            </div>
-            <div class="metric">
-              <div class="metric-value" id="issueCount">0</div>
-              <div class="metric-label">Need Review</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ITC Insights -->
-      <div class="card">
-        <div class="card-header">
-          <h2>ITC &amp; Reconciliation Insights</h2>
-        </div>
-        <div class="card-body">
-          <div class="metrics-grid cols-5">
-            <div class="metric highlight">
-              <div class="metric-value" id="itcReady">Rs.0</div>
-              <div class="metric-label">ITC Ready</div>
-            </div>
-            <div class="metric warning">
-              <div class="metric-value" id="itcRisk">Rs.0</div>
-              <div class="metric-label">ITC At Risk</div>
-            </div>
-            <div class="metric">
-              <div class="metric-value" id="missingBooks">0</div>
-              <div class="metric-label">Missing in Books</div>
-            </div>
-            <div class="metric">
-              <div class="metric-value" id="priorityActions">0</div>
-              <div class="metric-label">Priority Actions</div>
-            </div>
-            <div class="metric">
-              <div class="metric-value" id="qualityScore">0%</div>
-              <div class="metric-label">Confidence</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Data Table / HSN Summary / Vendor Summary -->
-      <div class="card">
-        <div class="card-header" style="border-bottom: none; padding-bottom: 0;">
-          <h2>Bill Register</h2>
-          <p>Click any cell to edit. Changes auto-recalculate stats and invalidate approval.</p>
-        </div>
-
-        <!-- Tabs -->
-        <div class="tab-bar">
-          <button class="tab active" data-tab="bills">Bills</button>
-          <button class="tab" data-tab="hsn">HSN Summary</button>
-          <button class="tab" data-tab="vendor">Vendor Summary</button>
-        </div>
-
-        <!-- Tab: Bills -->
-        <div class="tab-panel active" id="tab-bills">
-          <!-- Sticky summary bar -->
-          <div class="sticky-summary" id="stickySummary">
-            <div class="sticky-summary-item">
-              <span class="sticky-summary-label">Bills</span>
-              <span class="sticky-summary-value" id="ssBills">0</span>
-            </div>
-            <div class="sticky-summary-item">
-              <span class="sticky-summary-label">Taxable</span>
-              <span class="sticky-summary-value" id="ssTaxable">Rs.0</span>
-            </div>
-            <div class="sticky-summary-item">
-              <span class="sticky-summary-label">Total GST</span>
-              <span class="sticky-summary-value" id="ssGst">Rs.0</span>
-            </div>
-            <div class="sticky-summary-item">
-              <span class="sticky-summary-label">ITC Ready</span>
-              <span class="sticky-summary-value success" id="ssItcReady">Rs.0</span>
-            </div>
-            <div class="sticky-summary-item">
-              <span class="sticky-summary-label">ITC at Risk</span>
-              <span class="sticky-summary-value danger" id="ssItcRisk">Rs.0</span>
-            </div>
-            <div class="sticky-summary-item">
-              <span class="sticky-summary-label">Exceptions</span>
-              <span class="sticky-summary-value warning" id="ssExceptions">0</span>
-            </div>
-          </div>
-
-          <!-- Bulk actions bar -->
-          <div class="bulk-bar" id="bulkBar">
-            <span class="bulk-bar-count" id="bulkCount">0 selected</span>
-            <span class="bulk-select-all" id="bulkSelectAll">Select all</span>
-            <button class="btn btn-secondary" id="bulkMarkReviewed" style="font-size:11px;padding:3px 10px;">✓ Mark Reviewed</button>
-            <select id="bulkItcChange" style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--ink);">
-              <option value="">Set ITC Type...</option>
-              <option value="Input goods">Input goods</option>
-              <option value="Input service">Input service</option>
-              <option value="Capital goods">Capital goods</option>
-              <option value="Blocked / review">Blocked / review</option>
-            </select>
-            <button class="btn btn-danger" id="bulkDelete" style="font-size:11px;padding:3px 10px;">✕ Delete</button>
-            <button class="btn btn-secondary" id="bulkClear" style="font-size:11px;padding:3px 10px;">Clear</button>
-          </div>
-
-          <div class="filter-bar">
-            <span class="filter-label">Search</span>
-            <input type="text" id="searchInput" placeholder="Vendor, GSTIN, invoice no...">
-            <span class="filter-label">Status</span>
-            <select id="filterStatus">
-              <option value="">All</option>
-              <option value="Ready">Ready</option>
-              <option value="Review">Review</option>
-              <option value="ITC blocked">ITC Blocked</option>
-              <option value="Duplicate">Duplicate</option>
-              <option value="Check total">Check Total</option>
-            </select>
-            <span class="filter-label">2B</span>
-            <select id="filterReco">
-              <option value="">All</option>
-              <option value="Matched">Matched</option>
-              <option value="Missing in 2B">Missing in 2B</option>
-              <option value="Mismatch">Mismatch</option>
-              <option value="Not checked">Not Checked</option>
-            </select>
-            <span class="match-count" id="matchCount"></span>
-          </div>
-          <div class="table-container">
-            <table id="billTable" style="display: none;">
-              <thead>
-                <tr>
-                  <th style="width:28px;"><input type="checkbox" id="selectAllCheckbox" class="row-checkbox" title="Select all"></th>
-                  <th data-sort="status">Status</th>
-                  <th data-sort="vendor">Vendor</th>
-                  <th data-sort="gstin">GSTIN</th>
-                  <th data-sort="invoiceNo">Invoice No.</th>
-                  <th data-sort="date">Date</th>
-                  <th>HSN/SAC</th>
-                  <th data-sort="taxable">Taxable</th>
-                  <th>CGST</th>
-                  <th>SGST</th>
-                  <th>IGST</th>
-                  <th data-sort="total">Total</th>
-                  <th>Ledger</th>
-                  <th data-sort="itcType">ITC Type</th>
-                  <th>Risk</th>
-                  <th data-sort="reco">2B Reco</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="billRows"></tbody>
-            </table>
-            <div id="emptyState" class="empty-state-upgrade">
-              <div class="empty-state-upgrade-icon">📋</div>
-              <div class="empty-state-upgrade-title">No bills yet</div>
-              <div class="empty-state-upgrade-hint">Drop a PDF or image above, paste invoice text, or click <strong>Load Sample</strong> to see a demo.</div>
-              <button class="btn btn-secondary" onclick="document.getElementById('sampleBtn').click()" style="margin-top:4px;">Load Sample Data</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tab: HSN Summary -->
-        <div class="tab-panel" id="tab-hsn">
-          <div id="hsnContent"></div>
-        </div>
-
-        <!-- Tab: Vendor Summary -->
-        <div class="tab-panel" id="tab-vendor">
-          <div id="vendorContent"></div>
-        </div>
-      </div>
-
-      <!-- Action Center -->
-      <div class="card">
-        <div class="card-header">
-          <h2>Action Center <span class="exception-badge" id="exceptionBadge" style="display:none">0</span></h2>
-          <p>Exception list: what to fix, what to ask the client, what to hold before claiming ITC.</p>
-        </div>
-        <div class="card-body">
-          <div id="actionList" class="action-list"></div>
-          <textarea id="clientMessage" class="message-box" readonly placeholder="Generate a client follow-up message after reconciliation."></textarea>
-        </div>
-      </div>
-
-      <!-- Filing Safety & Approval -->
-      <div class="card">
-        <div class="card-header">
-          <h2>Filing Safety &amp; Approval</h2>
-          <p>A human reviewer must approve before any output is used for GST filing.</p>
-        </div>
-        <div class="card-body">
-          <div class="approval-grid">
-            <div>
-              <label for="reviewerName">Reviewer name</label>
-              <input id="reviewerName" type="text" placeholder="Partner / senior reviewer">
-              <div class="checklist">
-                <label class="check-row"><input id="checkSource" type="checkbox"> Source invoices and 2B data are from the correct client and return period.</label>
-                <label class="check-row"><input id="checkExceptions" type="checkbox"> Missing, mismatch, duplicate, and blocked ITC exceptions have been reviewed.</label>
-                <label class="check-row"><input id="checkEligibility" type="checkbox"> ITC eligibility has been verified by a qualified person.</label>
-                <label class="check-row"><input id="checkNoAutoFile" type="checkbox"> I understand this app does not file returns and does not replace professional judgement.</label>
-              </div>
-              <div class="btn-row" style="margin-top: 14px;">
-                <button class="btn btn-primary" id="approveBtn">Approve Review</button>
-                <button class="btn btn-secondary" id="clearAuditBtn">Clear Log</button>
-              </div>
-            </div>
-            <div>
-              <label>Audit log</label>
-              <div id="auditLog" class="audit-log">No audit events yet.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Pilot & Sales Kit -->
-      <div class="card">
-        <div class="card-header">
-          <h2>Pilot &amp; Sales Kit</h2>
-          <p>Generate a simple CA-firm pilot offer from the current review metrics. This helps you sell without claiming the product files GST returns.</p>
-        </div>
-        <div class="card-body">
-          <div class="btn-row" style="margin-bottom: 12px;">
-            <button class="btn btn-primary" id="pilotPlanBtn">Generate Pilot Plan</button>
-            <button class="btn btn-secondary" id="pilotCopyBtn">Copy Outreach</button>
-            <button class="btn btn-secondary" id="pilotDownloadBtn">Download Pilot Pack</button>
-          </div>
-          <textarea id="pilotPlanBox" class="message-box" readonly placeholder="Generate a pilot plan after loading sample data or processing a real client file."></textarea>
-        </div>
-      </div>
-
-      <!-- Validation Lab -->
-      <div class="card">
-        <div class="card-header">
-          <h2>Validation Lab</h2>
-          <p>Run non-filing safety checks before review: GSTIN structure, return period, tax mode, totals, duplicates, and 2B readiness.</p>
-        </div>
-        <div class="card-body">
-          <div class="stats-grid" style="margin-bottom: 12px;">
-            <div class="stat-card">
-              <span class="stat-label">Validation Score</span>
-              <strong class="stat-value" id="validationScore">0%</strong>
-            </div>
-            <div class="stat-card">
-              <span class="stat-label">Critical Issues</span>
-              <strong class="stat-value" id="criticalIssues">0</strong>
-            </div>
-            <div class="stat-card">
-              <span class="stat-label">Warnings</span>
-              <strong class="stat-value" id="warningIssues">0</strong>
-            </div>
-          </div>
-          <div class="btn-row" style="margin-bottom: 12px;">
-            <button class="btn btn-primary" id="validationRunBtn">Run Safety Checks</button>
-            <button class="btn btn-secondary" id="validationCsvBtn">Download Exception CSV</button>
-            <button class="btn btn-secondary" id="template2bBtn">Download 2B CSV Template</button>
-          </div>
-          <div id="validationBox" class="audit-log">No validation run yet.</div>
-        </div>
-      </div>
-      <!-- Fee Calculator -->
-      <div class="card">
-        <div class="card-header">
-          <h2>💰 Fee Calculator</h2>
-          <p>Estimate what you can charge your client for this GST review — and what ROI they get.</p>
-        </div>
-        <div class="card-body">
-          <div class="fee-grid">
-            <div class="form-group">
-              <label for="feeHourlyRate">Your hourly rate (Rs.)</label>
-              <input id="feeHourlyRate" type="text" value="1500">
-            </div>
-            <div class="form-group">
-              <label for="feeClientBudget">Client monthly budget (Rs.)</label>
-              <input id="feeClientBudget" type="text" value="3000">
-            </div>
-            <div class="form-group">
-              <label for="feeManualHours">Manual hours (without tool)</label>
-              <input id="feeManualHours" type="text" value="8">
-            </div>
-            <div class="form-group">
-              <label for="feeToolHours">Hours with this tool</label>
-              <input id="feeToolHours" type="text" value="1.5">
-            </div>
-          </div>
-          <button class="btn btn-primary" id="feeCalcBtn" style="margin-bottom:12px;">Calculate Fee</button>
-          <div id="feeResults" style="display:none;">
-            <div class="metrics-grid cols-3" style="margin-bottom:10px;">
-              <div class="fee-result">
-                <div class="fee-result-value" id="feeSuggestedCharge">Rs.0</div>
-                <div class="fee-result-label">Suggested charge to client</div>
-              </div>
-              <div class="fee-result" style="background:var(--primary-soft);border-color:var(--primary-border);">
-                <div class="fee-result-value" id="feeYourMargin" style="color:var(--primary);">0%</div>
-                <div class="fee-result-label">Your profit margin</div>
-              </div>
-              <div class="fee-result" style="background:var(--warning-soft);border-color:var(--warning-border);">
-                <div class="fee-result-value" id="feeClientRoi" style="color:var(--warning);">0x</div>
-                <div class="fee-result-label">Client ROI vs manual</div>
-              </div>
-            </div>
-            <div id="feePitch" style="font-size:13px;line-height:1.6;padding:10px;background:var(--surface-alt);border-radius:var(--radius);border:1px solid var(--border);"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Month-on-Month Trend -->
-      <div class="card">
-        <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-          <div>
-            <h2>📈 Month-on-Month Trend</h2>
-            <p>Compare current period against previous saved reviews.</p>
-          </div>
-          <button class="btn btn-secondary" id="saveTrendBtn">Save This Month</button>
-        </div>
-        <div class="card-body">
-          <div id="trendContent" style="color:var(--ink-muted);font-size:13px;">Save at least one month to see trends.</div>
-        </div>
-      </div>
-
-      <!-- AI Explain Exceptions -->
-      <div class="card">
-        <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-          <div>
-            <h2>✦ AI Exception Explainer</h2>
-            <p>Claude explains every exception in plain English — ideal for junior staff.</p>
-          </div>
-          <button class="btn btn-secondary" id="aiExplainBtn" style="background:var(--primary-soft);color:var(--primary-text);border-color:var(--primary-border);">✦ Explain Now</button>
-        </div>
-        <div class="card-body">
-          <div id="aiExplainPanel" style="font-size:13px;line-height:1.7;color:var(--ink);white-space:pre-wrap;min-height:40px;padding:4px 0;">Enter your API key above and click Explain Now after reconciling.</div>
-        </div>
-      </div>
-
-      <!-- Shortcuts Modal (hidden) -->
-      <div id="shortcutsModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
-        <div class="modal-box" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
-          <h3>⌨ Keyboard Shortcuts</h3>
-          <div class="shortcut-row"><span>Extract Bills (regex)</span><kbd>Alt + E</kbd></div>
-          <div class="shortcut-row"><span>AI Extract</span><kbd>Alt + A</kbd></div>
-          <div class="shortcut-row"><span>Reconcile</span><kbd>Alt + R</kbd></div>
-          <div class="shortcut-row"><span>Smart Fixes</span><kbd>Alt + F</kbd></div>
-          <div class="shortcut-row"><span>Save Client</span><kbd>Alt + S</kbd></div>
-          <div class="shortcut-row"><span>Load Sample</span><kbd>Alt + L</kbd></div>
-          <div class="shortcut-row"><span>Toggle Dark Mode</span><kbd>Alt + D</kbd></div>
-          <div class="shortcut-row"><span>Close this modal</span><kbd>Esc</kbd></div>
-          <button class="btn btn-secondary" style="margin-top:16px;width:100%;" onclick="document.getElementById('shortcutsModal').style.display='none'">Close</button>
-        </div>
-      </div>
-
+  <!-- HERO -->
+  <div class="hero wrap">
+    <span class="pill">✦ AI-assisted · 🔒 Runs in your browser · ⚖️ Open source (AGPL-3.0)</span>
+    <h1>Turn messy purchase bills into <span class="grad">clean, 2B-reconciled</span> books — in minutes.</h1>
+    <p class="sub">A purchase-review desk built for Indian CA firms. Extract invoices, reconcile against GSTR-2B, flag ITC risks, and export to Tally / Zoho / Excel. No signup, no server — your client data never leaves the browser.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="app.html">Open the app — it's free →</a>
+      <a class="btn btn-ghost" href="#how">See how it works</a>
     </div>
-  </div>
+    <div class="chips">
+      <span class="chip">🔒 <b>Local-only</b> — no account</span>
+      <span class="chip">📄 PDF + image OCR</span>
+      <span class="chip">🔁 GSTR-2B reconciliation</span>
+      <span class="chip">🧮 Tally CSV / XML · Zoho · Excel</span>
+    </div>
 
-  <!-- Settings Modal -->
-  <div class="settings-overlay" id="settingsOverlay" style="display:none;" onclick="if(event.target===this)closeSettings()">
-    <div class="settings-box" role="dialog" aria-modal="true" aria-label="Settings">
-      <h3>⚙ Settings</h3>
-      <div class="settings-section">
-        <div class="settings-section-title">Firm Details</div>
-        <div class="form-group">
-          <label for="settingFirmName">Firm name (for exports)</label>
-          <input id="settingFirmName" type="text" placeholder="Your CA Firm Name">
-        </div>
-        <div class="form-group">
-          <label for="settingFirmGstin">Firm GSTIN</label>
-          <input id="settingFirmGstin" type="text" placeholder="27XXXXX...">
-        </div>
+    <!-- Mock preview -->
+    <div class="shot" role="img" aria-label="Preview of the dashboard metrics">
+      <div class="shot-bar">
+        <span class="dot" style="background:#ef4444"></span>
+        <span class="dot" style="background:#f59e0b"></span>
+        <span class="dot" style="background:#22c55e"></span>
+        <span style="margin-left:10px;font-size:12px;color:var(--ink-muted)">GST Bill Assistant — Review Desk</span>
       </div>
-      <div class="settings-section">
-        <div class="settings-section-title">AI Configuration</div>
-        <div class="form-group">
-          <label for="settingApiKey">Anthropic API Key (saved locally)</label>
-          <input id="settingApiKey" type="password" placeholder="sk-ant-...">
-          <span style="font-size:11px;color:var(--ink-muted);display:block;margin-top:3px;">Stored in localStorage only. Never sent anywhere except Anthropic API.</span>
-        </div>
-      </div>
-      <div class="settings-section">
-        <div class="settings-section-title">Default Mappings</div>
-        <div class="form-group">
-          <label for="settingDefaultLedger">Default purchase ledger</label>
-          <select id="settingDefaultLedger">
-            <option>Purchase Account</option>
-            <option>Office Expenses</option>
-            <option>Software Expenses</option>
-            <option>Freight &amp; Courier</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="settingDefaultItc">Default ITC type</label>
-          <select id="settingDefaultItc">
-            <option>Input goods</option>
-            <option>Input service</option>
-            <option>Capital goods</option>
-            <option>Blocked / review</option>
-          </select>
-        </div>
-      </div>
-      <div class="settings-section">
-        <div class="settings-section-title">Data</div>
-        <button class="btn btn-danger" id="clearAllDataBtn" style="width:100%;margin-bottom:8px;">🗑 Clear All Saved Data</button>
-        <span style="font-size:11px;color:var(--ink-muted);">Clears auto-save, trend data, saved clients, and preferences from this browser.</span>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:8px;">
-        <button class="btn btn-primary" id="saveSettingsBtn" style="flex:1;">Save Settings</button>
-        <button class="btn btn-secondary" onclick="closeSettings()" style="flex:1;">Cancel</button>
+      <div class="shot-body">
+        <div class="stat"><div class="n">128</div><div class="l">Bills Extracted</div></div>
+        <div class="stat g"><div class="n">₹3.4L</div><div class="l">ITC Ready</div></div>
+        <div class="stat w"><div class="n">₹46k</div><div class="l">ITC at Risk</div></div>
+        <div class="stat"><div class="n">96%</div><div class="l">Matched in 2B</div></div>
       </div>
     </div>
   </div>
 
-  <!-- Auto-save indicator -->
-  <div id="autoSaveIndicator">💾 Auto-saved</div>
+  <!-- FEATURES -->
+  <section id="features">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>Everything a purchase-bill review needs</h2>
+        <p>From the first WhatsApp-forwarded invoice to a Tally-ready, reviewer-approved export.</p>
+      </div>
+      <div class="grid">
+        <div class="card"><div class="ic">📥</div><h3>Extract from anything</h3><p>PDFs, photos (OCR), text, or CSV. AI extraction reads any layout; offline regex works with no API key.</p></div>
+        <div class="card"><div class="ic">🔁</div><h3>GSTR-2B reconciliation</h3><p>Auto-match every bill, flag missing / mismatched / blocked ITC, and pull 2B-only invoices into your books.</p></div>
+        <div class="card"><div class="ic">✅</div><h3>Validation that catches errors</h3><p>GSTIN checksum, duplicate detection, return-period checks, and totals — invalid entries flagged inline.</p></div>
+        <div class="card"><div class="ic">🧮</div><h3>One-click exports</h3><p>Tally CSV &amp; XML vouchers, Zoho Books, Excel, plus client follow-up and WhatsApp messages.</p></div>
+        <div class="card"><div class="ic">👥</div><h3>Built for a firm</h3><p>Multi-client tabs, approval workflow with audit log, fee calculator, and a month-on-month trend.</p></div>
+        <div class="card"><div class="ic">🔒</div><h3>Private by design</h3><p>100% client-side. No server, no telemetry, no account. Export a JSON work file to back up or move clients.</p></div>
+      </div>
+    </div>
+  </section>
 
-  <!-- Footer Disclaimer -->
-  <footer class="footer">
-    <strong>Disclaimer:</strong> This prototype does not file GST returns, does not give tax or legal advice, and should not be used as the final source of truth.
-    A qualified reviewer must approve all outputs before filing. Data is stored in this browser only and is not encrypted.
-    Production use requires OCR, PDF upload, GST portal integration, Tally XML, user accounts, and encrypted storage.
+  <!-- HOW -->
+  <section id="how" class="alt">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>Four steps, one review desk</h2>
+        <p>No filing automation — a human reviewer always signs off before anything is used.</p>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="num">1</div><h3>Add invoices</h3><p>Drop PDFs/images, paste text, or import a CSV register.</p></div>
+        <div class="step"><div class="num">2</div><h3>Extract &amp; review</h3><p>AI or regex pulls the fields; the tool flags every exception.</p></div>
+        <div class="step"><div class="num">3</div><h3>Reconcile 2B</h3><p>Upload your GSTR-2B and match every bill automatically.</p></div>
+        <div class="step"><div class="num">4</div><h3>Approve &amp; export</h3><p>Reviewer signs off, then export to Tally / Zoho / Excel.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section>
+    <div class="wrap">
+      <div class="band">
+        <h2>Try it on a real client file right now</h2>
+        <p>It opens instantly in your browser with sample data loaded. Nothing to install, no signup.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="app.html">Open the app →</a>
+          <a class="btn btn-ghost" href="https://github.com/ayush-syst/gst-bill-assistant" target="_blank" rel="noopener">★ Star on GitHub</a>
+        </div>
+      </div>
+      <div class="disc"><b>Disclaimer:</b> This tool does not file GST returns and is not tax or legal advice. A qualified reviewer must approve all outputs before filing. Data is stored unencrypted in your browser — don't use a shared computer for real client data.</div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap foot">
+      <div class="brand" style="font-size:14px;"><span class="logo" style="width:26px;height:26px;font-size:13px;">G</span> GST Bill Assistant</div>
+      <div>© 2026 Ayush Yadav · AGPL-3.0 · <a href="https://github.com/ayush-syst/gst-bill-assistant" target="_blank" rel="noopener" style="color:var(--primary)">Source on GitHub</a></div>
+    </div>
   </footer>
-
-  <!-- Toast container -->
-  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
-
-  <!-- ============================================================
-       APPLICATION LOGIC
-       ============================================================ -->
-  <script type="module" src="assets/js/app.js"></script>
 </body>
 </html>

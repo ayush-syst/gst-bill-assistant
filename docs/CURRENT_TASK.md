@@ -58,7 +58,12 @@
 - [x] "Add 2B-only invoices to books" (reverse reconciliation)
 - [x] Verified in-browser (all four) + 16 core tests passing; no console errors
 
-**Status: all 5 planned waves shipped.** Possible further work before deploy: README
+**Wave 6 — Landing page ✅ DONE:** marketing homepage at `index.html` (hero, features, how-it-works,
+CTAs); the app moved to `app.html` (same code). No backend — preserves no-signup/local-only.
+Decision: **login/accounts deferred** until a backend wave (user is non-technical; chose to keep it
+account-free for now — instant use is a selling point).
+
+**Status: all 5 planned waves + landing page shipped.** Possible further work before deploy: README
 screenshots, more tests (reconcile/import as integration tests), self-host CDN libs for full
 offline, favicon/OG meta. Then the deploy decision (still deferred by user).
 

@@ -6,6 +6,11 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (landing page)
+- **Marketing landing page** is now the homepage (`index.html`): hero, feature grid, "how it
+  works", and CTAs into the tool. The app moved to **`app.html`** (same code, just renamed).
+  Self-contained, responsive, no backend — keeps the no-signup / local-only positioning.
+
 ### Added (new features — v3.2)
 - **Return-period date check.** Bills whose invoice date falls outside the selected GST return
   period are flagged as a "Wrong period" exception in the Action Center (unparseable dates are
