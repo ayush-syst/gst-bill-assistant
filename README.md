@@ -164,7 +164,8 @@ AI extraction and the exception explainer call the Anthropic API **directly from
 
 ## Roadmap
 
-See [`docs/NEXT_STEPS.md`](docs/NEXT_STEPS.md) for the full backlog. Highlights:
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phased vision (toward an end-to-end CA
+automation platform) and [`docs/NEXT_STEPS.md`](docs/NEXT_STEPS.md) for the full backlog. Highlights:
 
 - Harden GSTR-2B matching (invoice-number normalization, date tolerance, rounding rules)
 - Optional cloud sync + team accounts (so 2+ staff can share a client)
