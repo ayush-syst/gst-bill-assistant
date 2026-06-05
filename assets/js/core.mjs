@@ -355,3 +355,29 @@ export function rateWiseSummary(bills, slabs = [0, 0.25, 3, 5, 12, 18, 28]) {
     return ra - rb;
   });
 }
+
+// ---------- Net ITC summary (GSTR-3B style) ----------
+
+/**
+ * Break the GST on purchases into the buckets a CA needs for GSTR-3B:
+ *  - eligible: matched in 2B, not blocked, not duplicate → claimable now
+ *  - blocked: Sec 17(5) / "Blocked / review" ITC type → cannot claim
+ *  - atRisk: missing in 2B, mismatch, or duplicate → hold/verify before claiming
+ *  - unreconciled: not yet checked against 2B
+ *  - netAvailable: ITC you can safely claim now (== eligible)
+ */
+export function itcSummary(bills) {
+  const s = { total: 0, eligible: 0, blocked: 0, atRisk: 0, unreconciled: 0, netAvailable: 0 };
+  (bills || []).forEach(b => {
+    const gst = billGst(b);
+    s.total += gst;
+    if (b.itcType === "Blocked / review") { s.blocked += gst; return; }
+    if (b.risk === "Duplicate") { s.atRisk += gst; return; }
+    const reco = b.reco || "";
+    if (reco === "Matched") s.eligible += gst;
+    else if (reco === "Missing in 2B" || reco === "Mismatch") s.atRisk += gst;
+    else s.unreconciled += gst;
+  });
+  s.netAvailable = s.eligible;
+  return s;
+}

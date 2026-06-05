@@ -6,6 +6,12 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (competitor-inspired — v3.5)
+- **GSTR-3B net-ITC summary.** A dedicated card breaks the GST on purchases into Eligible &
+  matched (claim now) / At-risk (hold) / Not-yet-reconciled / Blocked Sec 17(5), and highlights
+  the **Net ITC you can claim now** — the CA's "how much ITC this month?" answer. Tested
+  `itcSummary()` (23 tests).
+
 ### Added (competitor-inspired — v3.4)
 - **Vendor compliance scorecard.** The Vendor Summary tab is now a supplier-compliance view with
   per-vendor **match rate** and a **risk badge** (High = invoices missing in 2B → supplier likely

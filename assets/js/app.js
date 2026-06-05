@@ -8,13 +8,13 @@
       billGst, rowStatus, statusBadgeClass,
       parseCsv, normalizeHeader, getByHeader,
       parseInvoiceMonth, invoicePeriodMismatch,
-      reconcile, parseBillsCsv, vendorCompliance, rateWiseSummary
+      reconcile, parseBillsCsv, vendorCompliance, rateWiseSummary, itcSummary
     } from "./core.mjs";
 
     // =============================================================
     // CONFIG — app-level constants (domain tunables are in core.mjs)
     // =============================================================
-    const APP_VERSION = "3.4.0";
+    const APP_VERSION = "3.5.0";
     const AI_MODEL = "claude-sonnet-4-6";       // Anthropic model id used for AI features
     let matchTolerance = AMOUNT_TOLERANCE;       // Rs. 2B-match tolerance (configurable in Settings)
 
@@ -577,6 +577,7 @@ Grand Total: 5900`;
       updateStats();
       renderActions();
       renderRecoBar();
+      renderItc3b();
       renderHsnSummary();
       renderVendorSummary();
       renderClientList();
@@ -2409,6 +2410,30 @@ Grand Total: 5900`;
     // =============================================================
     // RECONCILIATION STATUS BAR (visual)
     // =============================================================
+
+    function renderItc3b() {
+      const el = document.getElementById("itc3bSummary");
+      if (!el) return;
+      if (!bills.length) {
+        el.innerHTML = '<div class="summary-empty">Extract and reconcile bills to see your claimable ITC.</div>';
+        return;
+      }
+      const s = itcSummary(bills);
+      const row = (label, val, cls) =>
+        `<div class="itc3b-row"><span>${label}</span><span class="itc3b-val ${cls || ""}">${money(val)}</span></div>`;
+      el.innerHTML = `
+        <div class="itc3b">
+          ${row("Total GST on purchases", s.total, "")}
+          ${row("✓ Eligible &amp; matched in 2B (claim now)", s.eligible, "ok")}
+          ${row("⏳ At risk — missing / mismatch / duplicate (hold)", s.atRisk, "warn")}
+          ${row("• Not yet reconciled with 2B", s.unreconciled, "muted")}
+          ${row("✕ Blocked ITC — Sec 17(5) (cannot claim)", s.blocked, "bad")}
+        </div>
+        <div class="itc3b-net">
+          <span>Net ITC you can claim now</span>
+          <strong>${money(s.netAvailable)}</strong>
+        </div>`;
+    }
 
     function renderRecoBar() {
       const el = document.getElementById("recoBar");

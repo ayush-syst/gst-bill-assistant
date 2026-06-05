@@ -10,7 +10,7 @@ import {
   parseCsv, normalizeHeader, getByHeader,
   parseInvoiceMonth, invoicePeriodMismatch,
   reconcile, parseBillsCsv, vendorCompliance,
-  gstRate, rateWiseSummary,
+  gstRate, rateWiseSummary, itcSummary,
 } from "../assets/js/core.mjs";
 
 // ---------- normalizeNumber ----------
@@ -231,4 +231,22 @@ test("gstRate computes effective rate and rateWiseSummary buckets to slabs", () 
   assert.equal(byRate["12"].bills, 1);
   assert.ok(byRate["N/A"]);                          // zero-taxable bucket exists
   assert.equal(rows[0].rate, "N/A");                // N/A sorts first
+});
+
+// ---------- net ITC (GSTR-3B) summary ----------
+test("itcSummary buckets ITC into eligible / blocked / at-risk / unreconciled", () => {
+  const bills = [
+    { cgst: "90", sgst: "90", reco: "Matched", itcType: "Input goods", risk: "" },        // eligible 180
+    { igst: "180", reco: "Missing in 2B", itcType: "Input goods", risk: "" },              // at-risk 180
+    { cgst: "45", sgst: "45", reco: "Matched", itcType: "Blocked / review", risk: "" },    // blocked 90
+    { cgst: "30", sgst: "30", reco: "Matched", itcType: "Input goods", risk: "Duplicate" },// at-risk 60 (dup)
+    { cgst: "10", sgst: "10", reco: "", itcType: "Input goods", risk: "" },                // unreconciled 20
+  ];
+  const s = itcSummary(bills);
+  assert.equal(s.total, 180 + 180 + 90 + 60 + 20);
+  assert.equal(s.eligible, 180);
+  assert.equal(s.blocked, 90);
+  assert.equal(s.atRisk, 240);          // missing 180 + duplicate 60
+  assert.equal(s.unreconciled, 20);
+  assert.equal(s.netAvailable, 180);    // == eligible
 });

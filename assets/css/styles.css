@@ -1598,3 +1598,24 @@
     body.compact td input { padding: 3px 5px; font-size: 12px; }
     body.compact .metric { padding: 12px; }
     body.compact .card-body { padding: 14px 16px; }
+
+    /* GSTR-3B ITC summary */
+    .itc3b { border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+    .itc3b-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 11px 16px; font-size: 14px; border-bottom: 1px solid var(--border);
+    }
+    .itc3b-row:last-child { border-bottom: none; }
+    .itc3b-row:nth-child(even) { background: var(--surface-alt); }
+    .itc3b-val { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .itc3b-val.ok { color: var(--success); }
+    .itc3b-val.warn { color: var(--warning); }
+    .itc3b-val.bad { color: var(--danger); }
+    .itc3b-val.muted { color: var(--ink-muted); }
+    .itc3b-net {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 12px; padding: 14px 16px; border-radius: var(--radius-lg);
+      background: var(--success-soft); border: 1px solid var(--success-border);
+      font-weight: 600; color: var(--success);
+    }
+    .itc3b-net strong { font-size: 20px; font-variant-numeric: tabular-nums; }

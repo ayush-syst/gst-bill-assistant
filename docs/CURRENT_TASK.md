@@ -80,8 +80,11 @@ tests) + verified in-browser.
 **Wave 10 — Rate-wise tax summary ✅ DONE:** GST-slab grouping (0/3/5/12/18/28%) in the
 "HSN & Rate" tab for GSTR-1/3B prep; tested `gstRate`/`rateWiseSummary`. Tabs relabeled.
 
-**Status: 10 waves + landing page shipped. App at v3.4.0, 22 tests passing.**
-Remaining competitor ideas (in NEXT_STEPS): many-to-many matching, GSTR-2A, net-ITC (3B) summary. Possible further work before deploy: README
+**Wave 11 — GSTR-3B net-ITC summary ✅ DONE (v3.5.0):** card showing Eligible/At-risk/Unreconciled/
+Blocked + "Net ITC you can claim now". Tested `itcSummary` (23 tests), verified in-browser.
+
+**Status: 11 waves + landing page shipped. App at v3.5.0, 23 tests passing.**
+Remaining competitor ideas (NEXT_STEPS): many-to-many matching, GSTR-2A support. Possible further work before deploy: README
 screenshots, more tests (reconcile/import as integration tests), self-host CDN libs for full
 offline, favicon/OG meta. Then the deploy decision (still deferred by user).
 
