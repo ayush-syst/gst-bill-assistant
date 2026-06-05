@@ -2072,7 +2072,7 @@ Grand Total: 5900`;
           let extracted = '';
           if (name.endsWith('.pdf')) {
             if (!isPdfJsLoaded) throw new Error('PDF.js not loaded. Check your internet connection.');
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'assets/vendor/pdfjs/pdf.worker.min.js';
             extracted = await extractTextFromPDF(file);
           } else if (/\.(jpg|jpeg|png|webp|bmp|tiff?)$/.test(name)) {
             if (!isTesseractLoaded) throw new Error('Tesseract OCR not loaded. Check your internet connection.');

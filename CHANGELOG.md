@@ -15,6 +15,12 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
   (and "Bills Extracted" to clear filters).
 - **Compact density toggle.** A denser table view for large registers, remembered per browser.
 
+### Changed (offline / assets)
+- **PDF.js is now self-hosted** (`assets/vendor/pdfjs/`) instead of loaded from a CDN, so PDF
+  text extraction works fully offline. Verified by extracting text via the local worker.
+  (Image OCR via Tesseract stays on CDN — full self-hosting is heavy/fragile; see NEXT_STEPS.)
+- Added a **favicon** and **theme-color**; landing page now has Open Graph / Twitter-card meta.
+
 ### Added (landing page)
 - **Marketing landing page** is now the homepage (`index.html`): hero, feature grid, "how it
   works", and CTAs into the tool. The app moved to **`app.html`** (same code, just renamed).

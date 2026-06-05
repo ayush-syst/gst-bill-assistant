@@ -10,8 +10,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <!-- PDF.js for PDF text extraction -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- PDF.js for PDF text extraction (self-hosted → works offline) -->
+  <script src="assets/vendor/pdfjs/pdf.min.js"></script>
   <!-- Tesseract.js for image OCR -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <link rel="stylesheet" href="assets/css/styles.css">
@@ -808,9 +808,9 @@
 
   <!-- Footer Disclaimer -->
   <footer class="footer">
-    <strong>Disclaimer:</strong> This prototype does not file GST returns, does not give tax or legal advice, and should not be used as the final source of truth.
-    A qualified reviewer must approve all outputs before filing. Data is stored in this browser only and is not encrypted.
-    Production use requires OCR, PDF upload, GST portal integration, Tally XML, user accounts, and encrypted storage.
+    <strong>Disclaimer:</strong> This tool does not file GST returns, does not give tax or legal advice, and should not be used as the final source of truth.
+    A qualified reviewer must approve all outputs before filing. Data is stored in this browser only and is not encrypted — don't use a shared computer for real client data, and use <strong>Download full backup</strong> to keep a copy.
+    Always verify figures against the official GST portal.
   </footer>
 
   <!-- Toast container -->

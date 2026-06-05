@@ -67,7 +67,12 @@ account-free for now — instant use is a selling point).
 time + in-app data note; visual reconciliation bar (clickable to filter); clickable metric cards
 (Need Review → filter); compact density toggle (persisted). Verified in-browser; no console errors.
 
-**Status: all 5 planned waves + landing page + 4 polish features shipped.** Possible further work before deploy: README
+**Wave 8 — Repo/offline polish ✅ DONE:** favicon + social-preview meta; SVG product banner in the
+README; **PDF.js self-hosted** (offline PDF extraction, verified); integration tests for
+reconcile + CSV import (20 tests total); refreshed the stale in-app disclaimer. (Tesseract OCR
+left on CDN on purpose — see NEXT_STEPS.)
+
+**Status: all 5 planned waves + landing page + 4 polish features + repo/offline polish shipped.** Possible further work before deploy: README
 screenshots, more tests (reconcile/import as integration tests), self-host CDN libs for full
 offline, favicon/OG meta. Then the deploy decision (still deferred by user).
 

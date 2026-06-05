@@ -53,7 +53,11 @@
       (use native `<script type="module">`). Don't add a bundler casually.
 - [ ] Add a simple CSP and Subresource Integrity hashes for the CDN libraries.
 - [ ] Accessibility pass (keyboard nav, ARIA, focus states, contrast in dark mode).
-- [ ] Consider pinning/self-hosting the CDN libs so the app works fully offline.
+- [x] Self-host **PDF.js** (`assets/vendor/pdfjs/`) → PDF extraction works fully offline.
+- [ ] Self-host **Tesseract.js** for offline image-OCR. Deferred on purpose: it needs ~15–20 MB
+      of binaries committed (worker + WASM core + `eng` **and** `hin` traineddata) and careful
+      `workerPath`/`corePath`/`langPath` wiring — fragile, and OCR is the most niche feature.
+      Currently still loaded from CDN. Revisit if offline image-OCR becomes a real requirement.
 
 ## Parking lot (ideas, not committed)
 
