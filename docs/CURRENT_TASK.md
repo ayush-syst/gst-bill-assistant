@@ -96,7 +96,16 @@ them rather than trusting silently. Tested (29 tests: OCR, both fallbacks, claim
 verified in-browser end-to-end (crafted OCR + amount fallbacks both render Probable badge + Verify
 action; exact match does not; no console errors).
 
-**Status: 12 waves + landing page shipped. App at v3.6.0, 29 tests passing.**
+**Wave 13 — Split-invoice consolidation ✅ DONE (v3.7.0):** new pure `consolidate2bRows()` sums
+2B rows sharing GSTIN + invoice into one entry before the cascade runs, so a single booked bill
+matches an invoice the 2B split across lines (by rate/HSN) and a duplicated 2B invoice stops
+leaving a phantom "missing in books" row. Note says "Consolidated N 2B lines" so the reviewer
+knows the shown 2B figure is a sum. Tested (32 tests: helper + matched-split + mismatching-split),
+verified in-browser end-to-end (one bill ↔ two split 2B lines → Matched+consolidated note, no
+phantom missing-in-books; a genuine 2B-only invoice still surfaces correctly; no console errors).
+**NEXT 2B-accuracy candidate: book-side split** (many book rows → one 2B row), the symmetric case.
+
+**Status: 13 waves + landing page shipped. App at v3.7.0, 32 tests passing.**
 Remaining 2B-accuracy ideas (NEXT_STEPS): many-to-one / one-to-many (split invoices), GSTR-2A
 support, date-tolerance + credit-note/amendment handling, surface match-confidence in the UI badge.
 Possible further work before deploy: README screenshots. Then the deploy decision (deferred by user).

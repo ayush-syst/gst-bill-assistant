@@ -9,7 +9,7 @@ import {
   billGst, rowStatus, statusBadgeClass,
   parseCsv, normalizeHeader, getByHeader,
   parseInvoiceMonth, invoicePeriodMismatch,
-  reconcile, parseBillsCsv, vendorCompliance,
+  reconcile, consolidate2bRows, parseBillsCsv, vendorCompliance,
   gstRate, rateWiseSummary, itcSummary,
 } from "../assets/js/core.mjs";
 
@@ -242,6 +242,47 @@ test("reconcile: exact matches keep an empty note and 'exact' matchType", () => 
   assert.equal(out.reco, "Matched");
   assert.equal(out.matchType, "exact");
   assert.equal(out.recoNote, "");
+});
+
+// ---------- consolidate2bRows (split invoices) ----------
+test("consolidate2bRows sums same-invoice lines and counts them", () => {
+  const rows = [
+    { gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "5000", cgst: "0", sgst: "0", igst: "900", total: "5900" },
+    { gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "5000", cgst: "0", sgst: "0", igst: "600", total: "5600" }, // same invoice, 2nd rate line
+    { gstin: "29AAICA3918J1ZE", invoiceNo: "INV-2", taxable: "1000", cgst: "90", sgst: "90", igst: "0", total: "1180" }, // distinct
+  ];
+  const out = consolidate2bRows(rows);
+  assert.equal(out.length, 2);
+  const inv1 = out.find(r => r.invoiceNo === "INV-1");
+  assert.equal(inv1.lines, 2);
+  assert.equal(inv1.taxable, 10000);   // 5000 + 5000
+  assert.equal(inv1.igst, 1500);       // 900 + 600
+  assert.equal(inv1.total, 11500);     // 5900 + 5600
+  assert.equal(out.find(r => r.invoiceNo === "INV-2").lines, 1);
+});
+
+test("reconcile: one bill matches an invoice the 2B split into multiple lines", () => {
+  const bills = [b("27ABCDE1234F1Z0", "INV-1", { taxable: "10000", cgst: "0", sgst: "0", igst: "1500", total: "11500" })];
+  const rows = [
+    { gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "5000", cgst: "0", sgst: "0", igst: "900", total: "5900" },
+    { gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "5000", cgst: "0", sgst: "0", igst: "600", total: "5600" },
+  ];
+  const { bills: out, unmatched } = reconcile(bills, rows);
+  assert.equal(out[0].reco, "Matched");                       // summed 2B == book → match
+  assert.match(out[0].recoNote, /Consolidated 2 2B lines/);   // and the CA is told it was a sum
+  assert.equal(unmatched.length, 0);                          // no phantom "missing in books" row
+});
+
+test("reconcile: consolidated 2B sum that still differs from books is a Mismatch", () => {
+  const bills = [b("27ABCDE1234F1Z0", "INV-1", { taxable: "9000", igst: "1620", total: "10620" })];
+  const rows = [
+    { gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "5000", igst: "900", total: "5900" },
+    { gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "5000", igst: "900", total: "5900" }, // sum 10000 ≠ books 9000
+  ];
+  const out = reconcile(bills, rows).bills[0];
+  assert.equal(out.reco, "Mismatch");
+  assert.match(out.recoNote, /Consolidated 2 2B lines/);
+  assert.match(out.recoNote, /TAXABLE: books 9000 vs 2B 10000/);
 });
 
 // ---------- parseBillsCsv (integration) ----------

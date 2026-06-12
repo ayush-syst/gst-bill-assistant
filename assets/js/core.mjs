@@ -216,11 +216,43 @@ export function invoicePeriodMismatch(bill, returnPeriod) {
 const RECO_FIELDS = ["taxable", "cgst", "sgst", "igst", "total"];
 
 /**
+ * Consolidate GSTR-2B rows that belong to the SAME invoice (identical GSTIN +
+ * invoice number) into one entry whose amounts are the sum of the lines. This lets
+ * a single booked bill still match when the 2B — or a tool that converted it — lists
+ * that invoice as several line items (split by rate/HSN), and stops a genuinely
+ * duplicated 2B invoice from leaving a phantom "missing in books" row. Rows with no
+ * GSTIN and no invoice number are left un-grouped. Each result carries `lines` =
+ * how many original 2B rows it represents.
+ */
+export function consolidate2bRows(rows) {
+  const groups = new Map();
+  (rows || []).forEach((r, idx) => {
+    const gstin = String(r.gstin || "").toUpperCase();
+    const inv = normalizeInvoiceNo(r.invoiceNo);
+    const key = (gstin || inv) ? `${gstin}|${inv}` : `__blank_${idx}`;
+    const g = groups.get(key);
+    if (!g) {
+      groups.set(key, {
+        gstin: r.gstin || "", invoiceNo: r.invoiceNo || "",
+        taxable: Number(r.taxable || 0), cgst: Number(r.cgst || 0), sgst: Number(r.sgst || 0),
+        igst: Number(r.igst || 0), total: Number(r.total || 0), lines: 1,
+      });
+    } else {
+      RECO_FIELDS.forEach(f => { g[f] += Number(r[f] || 0); });
+      g.lines += 1;
+    }
+  });
+  return [...groups.values()];
+}
+
+/**
  * Reconcile booked bills against GSTR-2B rows with a multi-tier matching cascade.
  *
- * Each pass runs across ALL still-unmatched bills before the next, and every 2B
- * row can be claimed only once — so a safe exact match is never stolen by a looser
- * fallback. Tiers, strongest first:
+ * 2B rows for the same invoice are first consolidated (see consolidate2bRows), so a
+ * single bill matches an invoice the 2B split across lines. Then each pass runs
+ * across ALL still-unmatched bills before the next, and every 2B entry can be claimed
+ * only once — so a safe exact match is never stolen by a looser fallback. Tiers,
+ * strongest first:
  *   1. exact        — GSTIN + invoice number (alphanumeric, case-insensitive)
  *   2. leading-zero — GSTIN + invoice ignoring leading zeros ("PP/891" ≈ "PP/0891")
  *   3. ocr          — GSTIN + invoice with OCR-confusable chars folded ("89I" ≈ "891")
@@ -230,11 +262,12 @@ const RECO_FIELDS = ["taxable", "cgst", "sgst", "igst", "total"];
  * Output statuses stay "Matched" / "Mismatch" / "Missing in 2B" (so the rest of the
  * app is unaffected); fallback tiers are spelled out in `recoNote` and tagged on
  * `matchType` ("exact" | "leading-zero" | "ocr" | "amount" | "" when unmatched).
+ * `unmatched` holds the consolidated 2B entries with no book match (each with `lines`).
  * `money` formats amounts inside notes (defaults to plain numbers).
  */
 export function reconcile(bills, rows, { tolerance = AMOUNT_TOLERANCE, money = (n) => String(n) } = {}) {
-  // Wrap 2B rows so we can mark each as claimed exactly once.
-  const rowList = (rows || []).map(r => ({ r, claimed: false }));
+  // Consolidate split 2B lines, then wrap so each entry can be claimed exactly once.
+  const rowList = consolidate2bRows(rows).map(r => ({ r, claimed: false }));
   const billList = (bills || []).map(bill => ({ bill, match: null, matchType: "" }));
 
   // First row wins for any given key (later duplicates fall through to other tiers).
@@ -287,6 +320,10 @@ export function reconcile(bills, rows, { tolerance = AMOUNT_TOLERANCE, money = (
   const out = billList.map(({ bill, match, matchType }) => {
     if (!match) return { ...bill, reco: "Missing in 2B", matchType: "", recoNote: "No GSTIN + invoice match in 2B" };
 
+    // When the 2B side was several lines for this invoice, say so — the 2B figures
+    // shown below are the consolidated sum.
+    const consNote = match.lines > 1 ? `Consolidated ${match.lines} 2B lines for this invoice. ` : "";
+
     let prefix = "";
     if (matchType === "leading-zero")
       prefix = `Matched ignoring leading zeros (books "${bill.invoiceNo}" ≈ 2B "${match.invoiceNo}"). `;
@@ -300,9 +337,9 @@ export function reconcile(bills, rows, { tolerance = AMOUNT_TOLERANCE, money = (
       const detail = mismatches
         .map(f => `${f.toUpperCase()}: books ${money(Number(bill[f] || 0))} vs 2B ${money(Number(match[f] || 0))}`)
         .join("; ");
-      return { ...bill, reco: "Mismatch", matchType, recoNote: prefix + detail };
+      return { ...bill, reco: "Mismatch", matchType, recoNote: consNote + prefix + detail };
     }
-    return { ...bill, reco: "Matched", matchType, recoNote: prefix.trim() };
+    return { ...bill, reco: "Matched", matchType, recoNote: (consNote + prefix).trim() };
   });
 
   return { bills: out, unmatched: rowList.filter(rw => !rw.claimed).map(rw => rw.r) };

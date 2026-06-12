@@ -6,6 +6,15 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed (reconciliation accuracy — v3.7)
+- **Split-invoice consolidation.** Before matching, GSTR-2B rows that share the same
+  GSTIN + invoice number are now summed into one entry (new pure `consolidate2bRows()`).
+  So a single booked bill still matches an invoice the 2B lists as several line items
+  (split by rate/HSN, common in converted exports), and a duplicated 2B invoice no
+  longer leaves a phantom **"missing in books"** row. The reco note says *"Consolidated
+  N 2B lines for this invoice"* so the reviewer knows the 2B figure shown is the sum.
+  **32 tests** (added the helper + matched-split + still-mismatching-split cases).
+
 ### Changed (reconciliation accuracy — v3.6)
 - **Multi-tier 2B matching cascade.** Reconciliation now runs four passes over the
   bills — **exact → leading-zero → OCR-confusable chars → GSTIN + amount** — with each
