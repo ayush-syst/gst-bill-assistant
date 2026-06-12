@@ -83,10 +83,23 @@ tests) + verified in-browser.
 **Wave 11 — GSTR-3B net-ITC summary ✅ DONE (v3.5.0):** card showing Eligible/At-risk/Unreconciled/
 Blocked + "Net ITC you can claim now". Tested `itcSummary` (23 tests), verified in-browser.
 
-**Status: 11 waves + landing page shipped. App at v3.5.0, 23 tests passing.**
-Remaining competitor ideas (NEXT_STEPS): many-to-many matching, GSTR-2A support. Possible further work before deploy: README
-screenshots, more tests (reconcile/import as integration tests), self-host CDN libs for full
-offline, favicon/OG meta. Then the deploy decision (still deferred by user).
+**Wave 12 — Best-in-class 2B matching ✅ DONE (v3.6.0):** product focus locked to *best-in-class
+GSTR-2B reconciliation* (after comparing against Suvit / Vyapar TaxOne — they charge for this; we
+own the niche). Rewrote `reconcile()` from a 2-tier matcher into a **4-pass cascade**: exact →
+leading-zero → **OCR-confusable chars** (`normalizeInvoiceOcr`: O→0,I/L→1,S→5,B→8,Z→2,G→6) →
+**GSTIN+amount** (invoice text differs but taxable AND total agree). Each 2B row is claimed once
+(passes ordered strongest-first, so exact never gets stolen). Kills most false "Missing in 2B"
+flags — the #1 CA trust issue. Output statuses unchanged; fallback used is shown in the note +
+new `matchType` field. **Probable matches surfaced**: fallback matches (ocr/amount) wear a
+dashed "⚠ Probable" badge + raise a "Verify match" Action-Center item, so the reviewer confirms
+them rather than trusting silently. Tested (29 tests: OCR, both fallbacks, claim-once, exact-tag),
+verified in-browser end-to-end (crafted OCR + amount fallbacks both render Probable badge + Verify
+action; exact match does not; no console errors).
+
+**Status: 12 waves + landing page shipped. App at v3.6.0, 29 tests passing.**
+Remaining 2B-accuracy ideas (NEXT_STEPS): many-to-one / one-to-many (split invoices), GSTR-2A
+support, date-tolerance + credit-note/amendment handling, surface match-confidence in the UI badge.
+Possible further work before deploy: README screenshots. Then the deploy decision (deferred by user).
 
 (Deferred by user: enabling GitHub Pages + first deploy — only once it's 10/10.)
 

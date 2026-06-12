@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   AMOUNT_TOLERANCE,
-  normalizeNumber, normalizeInvoiceNo, normalizeInvoiceLoose,
+  normalizeNumber, normalizeInvoiceNo, normalizeInvoiceLoose, normalizeInvoiceOcr,
   gstinCheckDigit, gstinChecksumOk, isValidGstin, gstinStateCode,
   billGst, rowStatus, statusBadgeClass,
   parseCsv, normalizeHeader, getByHeader,
@@ -37,6 +37,18 @@ test("normalizeInvoiceLoose drops leading zeros per digit group only", () => {
   assert.equal(normalizeInvoiceLoose("INV42"), "INV42");
   // the whole point: a leading-zero variant and its plain form collide
   assert.equal(normalizeInvoiceLoose("PP/0891"), normalizeInvoiceLoose("PP/891"));
+});
+
+test("normalizeInvoiceOcr folds OCR-confusable chars (and leading zeros)", () => {
+  // an OCR misread of the trailing "1" as "I" still collides
+  assert.equal(normalizeInvoiceOcr("PP/89I"), normalizeInvoiceOcr("PP/891"));
+  // every confusable folds (the key is internal-only, both sides fold identically):
+  // I→1 and O→0, then the leading zeros strip away
+  assert.equal(normalizeInvoiceOcr("INVO042"), "1NV42");   // I→1, O→0, then leading-zero strip
+  assert.equal(normalizeInvoiceOcr("5B"), "58");           // S→5, B→8
+  assert.equal(normalizeInvoiceOcr("GZ"), "62");           // G→6, Z→2
+  // still a superset of the leading-zero collision
+  assert.equal(normalizeInvoiceOcr("PP/0891"), normalizeInvoiceOcr("PP/891"));
 });
 
 // ---------- GSTIN ----------
@@ -176,6 +188,60 @@ test("reconcile: amount diffs within tolerance are still Matched", () => {
   const bills = [b("27ABCDE1234F1Z0", "INV-1", { taxable: "1000", total: "1180" })];
   const rows = [{ gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "1001", total: "1181" }]; // off by 1 (≤2)
   assert.equal(reconcile(bills, rows)[ "bills" ][0].reco, "Matched");
+});
+
+test("reconcile tier 3 (OCR): invoice-no misread still matches, flagged + tagged", () => {
+  const bills = [b("27ABCDE1234F1Z0", "PP/891", { taxable: "8600", cgst: "774", sgst: "774", igst: "0", total: "10148" })];
+  // 2B has the same invoice but the trailing "1" was OCR'd as "I"
+  const rows = [{ gstin: "27ABCDE1234F1Z0", invoiceNo: "PP/89I", taxable: "8600", cgst: "774", sgst: "774", igst: "0", total: "10148" }];
+  const { bills: out, unmatched } = reconcile(bills, rows);
+  assert.equal(out[0].reco, "Matched");
+  assert.equal(out[0].matchType, "ocr");
+  assert.match(out[0].recoNote, /OCR misread/);
+  assert.equal(unmatched.length, 0);
+});
+
+test("reconcile tier 4 (GSTIN + amount): different invoice text, equal amounts → probable match", () => {
+  const bills = [b("27ABCDE1234F1Z0", "INV-2026-0042", { taxable: "1000", cgst: "90", sgst: "90", igst: "0", total: "1180" })];
+  // same supplier + identical amounts, but the 2B invoice string is formatted completely differently
+  const rows = [{ gstin: "27ABCDE1234F1Z0", invoiceNo: "42/2026-27", taxable: "1000", cgst: "90", sgst: "90", igst: "0", total: "1180" }];
+  const { bills: out, unmatched } = reconcile(bills, rows);
+  assert.equal(out[0].reco, "Matched");
+  assert.equal(out[0].matchType, "amount");
+  assert.match(out[0].recoNote, /GSTIN \+ amount/);
+  assert.equal(unmatched.length, 0);
+});
+
+test("reconcile tier 4 does NOT fire when totals differ beyond tolerance", () => {
+  const bills = [b("27ABCDE1234F1Z0", "INV-A", { taxable: "1000", total: "1180" })];
+  const rows = [{ gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-B", taxable: "1000", total: "1300" }]; // total off by 120
+  const { bills: out, unmatched } = reconcile(bills, rows);
+  assert.equal(out[0].reco, "Missing in 2B");
+  assert.equal(unmatched.length, 1);
+});
+
+test("reconcile: a 2B row is claimed once — exact wins over a looser tier", () => {
+  // Two book bills, same GSTIN. One is the exact INV-1; the other has a different
+  // invoice but the same amounts. Only one real 2B row (INV-1) exists.
+  const bills = [
+    b("27ABCDE1234F1Z0", "INV-1",   { taxable: "1000", total: "1180" }),
+    b("27ABCDE1234F1Z0", "OTHER-9", { taxable: "1000", total: "1180" }),
+  ];
+  const rows = [{ gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "1000", total: "1180" }];
+  const { bills: out, unmatched } = reconcile(bills, rows);
+  assert.equal(out[0].reco, "Matched");        // exact claims the row
+  assert.equal(out[0].matchType, "exact");
+  assert.equal(out[1].reco, "Missing in 2B");  // amount tier can't reuse a claimed row
+  assert.equal(unmatched.length, 0);
+});
+
+test("reconcile: exact matches keep an empty note and 'exact' matchType", () => {
+  const bills = [b("27ABCDE1234F1Z0", "INV-1", { taxable: "1000", cgst: "90", sgst: "90", igst: "0", total: "1180" })];
+  const rows = [{ gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "1000", cgst: "90", sgst: "90", igst: "0", total: "1180" }];
+  const out = reconcile(bills, rows).bills[0];
+  assert.equal(out.reco, "Matched");
+  assert.equal(out.matchType, "exact");
+  assert.equal(out.recoNote, "");
 });
 
 // ---------- parseBillsCsv (integration) ----------

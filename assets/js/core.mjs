@@ -32,6 +32,21 @@ export function normalizeInvoiceLoose(value) {
   return normalizeInvoiceNo(value).replace(/(^|[A-Z])0+(\d)/g, "$1$2");
 }
 
+/** Letters most often confused with digits by OCR, folded to their digit lookalike. */
+const OCR_FOLD = { O: "0", I: "1", L: "1", S: "5", B: "8", Z: "2", G: "6" };
+
+/**
+ * OCR-tolerant invoice key: on top of the leading-zero-loose key, folds the
+ * characters OCR most often misreads (O→0, I/L→1, S→5, B→8, Z→2, G→6) so a
+ * scan of "PP/891" that comes through as "PP/89I" still collides. Riskier than
+ * the loose key (it can over-merge), so it is only used as a later fallback and
+ * always flagged for the reviewer.
+ */
+export function normalizeInvoiceOcr(value) {
+  const folded = normalizeInvoiceNo(value).replace(/[OILSBZG]/g, ch => OCR_FOLD[ch]);
+  return folded.replace(/(^|[A-Z])0+(\d)/g, "$1$2");
+}
+
 // ---------- GSTIN ----------
 
 const GSTIN_CODE = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -197,48 +212,100 @@ export function invoicePeriodMismatch(bill, returnPeriod) {
 
 // ---------- Reconciliation (pure) ----------
 
+/** The five amount fields compared between a book bill and its 2B row. */
+const RECO_FIELDS = ["taxable", "cgst", "sgst", "igst", "total"];
+
 /**
- * Reconcile booked bills against GSTR-2B rows.
- * Exact GSTIN+invoice match first, then a leading-zero-tolerant fallback (flagged).
- * Returns { bills: annotated copies with reco/recoNote, unmatched: 2B rows with no book match }.
- * `money` formats amounts inside mismatch notes (defaults to plain numbers).
+ * Reconcile booked bills against GSTR-2B rows with a multi-tier matching cascade.
+ *
+ * Each pass runs across ALL still-unmatched bills before the next, and every 2B
+ * row can be claimed only once — so a safe exact match is never stolen by a looser
+ * fallback. Tiers, strongest first:
+ *   1. exact        — GSTIN + invoice number (alphanumeric, case-insensitive)
+ *   2. leading-zero — GSTIN + invoice ignoring leading zeros ("PP/891" ≈ "PP/0891")
+ *   3. ocr          — GSTIN + invoice with OCR-confusable chars folded ("89I" ≈ "891")
+ *   4. amount       — GSTIN + both taxable AND total within tolerance, invoice no differs
+ *                     (kills the false "Missing in 2B" when only the invoice text differs)
+ *
+ * Output statuses stay "Matched" / "Mismatch" / "Missing in 2B" (so the rest of the
+ * app is unaffected); fallback tiers are spelled out in `recoNote` and tagged on
+ * `matchType` ("exact" | "leading-zero" | "ocr" | "amount" | "" when unmatched).
+ * `money` formats amounts inside notes (defaults to plain numbers).
  */
 export function reconcile(bills, rows, { tolerance = AMOUNT_TOLERANCE, money = (n) => String(n) } = {}) {
-  const exactIndex = new Map();
-  const looseIndex = new Map();
-  (rows || []).forEach(r => {
-    exactIndex.set(`${r.gstin}|${normalizeInvoiceNo(r.invoiceNo)}`, r);
-    const lk = `${r.gstin}|${normalizeInvoiceLoose(r.invoiceNo)}`;
-    if (!looseIndex.has(lk)) looseIndex.set(lk, r);
+  // Wrap 2B rows so we can mark each as claimed exactly once.
+  const rowList = (rows || []).map(r => ({ r, claimed: false }));
+  const billList = (bills || []).map(bill => ({ bill, match: null, matchType: "" }));
+
+  // First row wins for any given key (later duplicates fall through to other tiers).
+  const idxExact = new Map(), idxLoose = new Map(), idxOcr = new Map();
+  const byGstin = new Map();
+  rowList.forEach(rw => {
+    const g = String(rw.r.gstin || "").toUpperCase();
+    const ek = `${g}|${normalizeInvoiceNo(rw.r.invoiceNo)}`;
+    const lk = `${g}|${normalizeInvoiceLoose(rw.r.invoiceNo)}`;
+    const ok = `${g}|${normalizeInvoiceOcr(rw.r.invoiceNo)}`;
+    if (!idxExact.has(ek)) idxExact.set(ek, rw);
+    if (!idxLoose.has(lk)) idxLoose.set(lk, rw);
+    if (!idxOcr.has(ok)) idxOcr.set(ok, rw);
+    if (!byGstin.has(g)) byGstin.set(g, []);
+    byGstin.get(g).push(rw);
   });
-  const matchedRows = new Set();
 
-  const out = (bills || []).map(bill => {
-    const g = String(bill.gstin || "").toUpperCase();
-    let match = exactIndex.get(`${g}|${normalizeInvoiceNo(bill.invoiceNo)}`);
-    let loose = false;
-    if (!match) {
-      match = looseIndex.get(`${g}|${normalizeInvoiceLoose(bill.invoiceNo)}`);
-      loose = !!match;
-    }
-    if (!match) return { ...bill, reco: "Missing in 2B", recoNote: "No GSTIN + invoice match in 2B" };
+  // A keyed pass: claim the first unclaimed 2B row whose key matches each open bill.
+  const keyedPass = (index, keyFn, type) => {
+    billList.forEach(bl => {
+      if (bl.match) return;
+      const g = String(bl.bill.gstin || "").toUpperCase();
+      const rw = index.get(`${g}|${keyFn(bl.bill.invoiceNo)}`);
+      if (rw && !rw.claimed) { rw.claimed = true; bl.match = rw.r; bl.matchType = type; }
+    });
+  };
 
-    matchedRows.add(match);
-    const fields = ["taxable", "cgst", "sgst", "igst", "total"];
-    const mismatches = fields.filter(f => Math.abs(Number(bill[f] || 0) - Number(match[f] || 0)) > tolerance);
-    const loosePrefix = loose
-      ? `Matched ignoring leading zeros (books "${bill.invoiceNo}" ≈ 2B "${match.invoiceNo}"). `
-      : "";
+  keyedPass(idxExact, normalizeInvoiceNo, "exact");
+  keyedPass(idxLoose, normalizeInvoiceLoose, "leading-zero");
+  keyedPass(idxOcr, normalizeInvoiceOcr, "ocr");
+
+  // Tier 4 — invoice number differs entirely: fall back to GSTIN + amount.
+  // Require BOTH taxable and total within tolerance (a strong pair signal), and
+  // pick the closest unclaimed row for that GSTIN.
+  billList.forEach(bl => {
+    if (bl.match) return;
+    const g = String(bl.bill.gstin || "").toUpperCase();
+    let best = null, bestDiff = Infinity;
+    (byGstin.get(g) || []).forEach(rw => {
+      if (rw.claimed) return;
+      const dTax = Math.abs(Number(bl.bill.taxable || 0) - Number(rw.r.taxable || 0));
+      const dTot = Math.abs(Number(bl.bill.total || 0) - Number(rw.r.total || 0));
+      if (dTax <= tolerance && dTot <= tolerance && (dTax + dTot) < bestDiff) {
+        bestDiff = dTax + dTot; best = rw;
+      }
+    });
+    if (best) { best.claimed = true; bl.match = best.r; bl.matchType = "amount"; }
+  });
+
+  const out = billList.map(({ bill, match, matchType }) => {
+    if (!match) return { ...bill, reco: "Missing in 2B", matchType: "", recoNote: "No GSTIN + invoice match in 2B" };
+
+    let prefix = "";
+    if (matchType === "leading-zero")
+      prefix = `Matched ignoring leading zeros (books "${bill.invoiceNo}" ≈ 2B "${match.invoiceNo}"). `;
+    else if (matchType === "ocr")
+      prefix = `Probable match — invoice no likely an OCR misread (books "${bill.invoiceNo}" ≈ 2B "${match.invoiceNo}"). Verify. `;
+    else if (matchType === "amount")
+      prefix = `Probable match on GSTIN + amount — invoice no differs (books "${bill.invoiceNo}" vs 2B "${match.invoiceNo}"). Verify. `;
+
+    const mismatches = RECO_FIELDS.filter(f => Math.abs(Number(bill[f] || 0) - Number(match[f] || 0)) > tolerance);
     if (mismatches.length) {
       const detail = mismatches
         .map(f => `${f.toUpperCase()}: books ${money(Number(bill[f] || 0))} vs 2B ${money(Number(match[f] || 0))}`)
         .join("; ");
-      return { ...bill, reco: "Mismatch", recoNote: loosePrefix + detail };
+      return { ...bill, reco: "Mismatch", matchType, recoNote: prefix + detail };
     }
-    return { ...bill, reco: "Matched", recoNote: loosePrefix.trim() };
+    return { ...bill, reco: "Matched", matchType, recoNote: prefix.trim() };
   });
 
-  return { bills: out, unmatched: (rows || []).filter(r => !matchedRows.has(r)) };
+  return { bills: out, unmatched: rowList.filter(rw => !rw.claimed).map(rw => rw.r) };
 }
 
 // ---------- CSV → bills (pure) ----------

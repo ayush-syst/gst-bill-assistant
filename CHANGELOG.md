@@ -6,6 +6,25 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed (reconciliation accuracy — v3.6)
+- **Multi-tier 2B matching cascade.** Reconciliation now runs four passes over the
+  bills — **exact → leading-zero → OCR-confusable chars → GSTIN + amount** — with each
+  2B row claimable only once (so a safe exact match is never stolen by a looser tier).
+  Two new fallbacks kill most false **"Missing in 2B"** flags:
+  - **OCR-confusable matching** folds characters scanners misread (O→0, I/L→1, S→5,
+    B→8, Z→2, G→6), so a bill `PP/891` still matches a 2B entry OCR'd as `PP/89I`.
+  - **GSTIN + amount matching** pairs a bill to a 2B row from the same supplier when
+    **both taxable and total** agree (within tolerance) even though the invoice text
+    differs entirely — flagged "Probable match, verify" so the reviewer confirms.
+  Output statuses are unchanged (Matched / Mismatch / Missing in 2B); the fallback used
+  is spelled out in the reconciliation note and tagged on a new `matchType` field. New
+  pure helper `normalizeInvoiceOcr()`; **29 tests** (added OCR, both fallback tiers,
+  the claim-once guarantee, and exact-match tagging).
+- **Probable matches are surfaced for review.** A fallback (OCR / GSTIN+amount) match is
+  still counted as Matched, but now wears a dashed **"⚠ Probable"** badge in the register
+  and raises a **"Verify match"** item in the Action Center — so a reviewer confirms the
+  invoice really is the same one before claiming the ITC, instead of trusting it silently.
+
 ### Added (competitor-inspired — v3.5)
 - **GSTR-3B net-ITC summary.** A dedicated card breaks the GST on purchases into Eligible &
   matched (claim now) / At-risk (hold) / Not-yet-reconciled / Blocked Sec 17(5), and highlights

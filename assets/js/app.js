@@ -14,7 +14,7 @@
     // =============================================================
     // CONFIG — app-level constants (domain tunables are in core.mjs)
     // =============================================================
-    const APP_VERSION = "3.5.0";
+    const APP_VERSION = "3.6.0";
     const AI_MODEL = "claude-sonnet-4-6";       // Anthropic model id used for AI features
     let matchTolerance = AMOUNT_TOLERANCE;       // Rs. 2B-match tolerance (configurable in Settings)
 
@@ -414,6 +414,11 @@ Grand Total: 5900`;
       return `<td><input data-index="${index}" data-key="gstin" type="text" value="${escapeHtml(value)}"${cls}${title}></td>`;
     }
 
+    /** True when a bill matched only via a fallback tier (OCR / GSTIN+amount) and needs a human check. */
+    function isProbableMatch(bill) {
+      return bill.reco === "Matched" && (bill.matchType === "ocr" || bill.matchType === "amount");
+    }
+
     /** Render the 2B reconciliation badge for a bill */
     function recoBadge(bill) {
       const reco = bill.reco || "Not checked";
@@ -422,8 +427,12 @@ Grand Total: 5900`;
       else if (reco === "Mismatch") cls = "badge-warn";
       else if (reco === "Missing in 2B") cls = "badge-bad";
 
+      // A fallback (probable) match is still "Matched" but flagged so the reviewer verifies it.
+      const probable = isProbableMatch(bill)
+        ? ` <span class="badge badge-probable" title="Matched on a fallback rule — verify the invoice number">⚠ Probable</span>`
+        : "";
       const note = bill.recoNote ? `<br><span style="font-size:11px;color:var(--ink-muted)">${escapeHtml(bill.recoNote)}</span>` : "";
-      return `<span class="badge ${cls}">${escapeHtml(reco)}</span>${note}`;
+      return `<span class="badge ${cls}">${escapeHtml(reco)}</span>${probable}${note}`;
     }
 
     /** Full render: table rows, stats, actions, summaries, client list */
@@ -841,6 +850,13 @@ Grand Total: 5900`;
             detail: `${bill.recoNote}. Compare with original invoice.`
           });
         }
+        if (isProbableMatch(bill)) {
+          actions.push({
+            type: "Verify match",
+            title: `${bill.vendor || "Unknown"} — ${bill.invoiceNo || "No inv #"}`,
+            detail: `${bill.recoNote || "Matched on a fallback rule."} Confirm it's the same invoice before claiming ${money(billGst(bill))}.`
+          });
+        }
       });
 
       unmatched2bRows.forEach(r => {
@@ -869,7 +885,7 @@ Grand Total: 5900`;
       }
 
       els.actions.innerHTML = actions.map(a => {
-        const cls = (a.type === "Missing in books" || a.type === "ITC review") ? "badge-warn" : "badge-bad";
+        const cls = (a.type === "Missing in books" || a.type === "ITC review" || a.type === "Verify match") ? "badge-warn" : "badge-bad";
         return `
           <div class="action-item">
             <div class="action-item-content">
