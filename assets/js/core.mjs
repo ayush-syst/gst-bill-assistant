@@ -264,13 +264,46 @@ export function consolidate2bRows(rows) {
 }
 
 /**
+ * Group booked bills that belong to the SAME invoice (identical GSTIN + invoice number)
+ * into one entry whose amounts are the sum of the lines — the book-side twin of
+ * consolidate2bRows. A firm often books one supplier invoice as several ledger lines
+ * (split by HSN, goods vs freight, or different expense ledgers) while the 2B lists it as
+ * a single row; without this only the first booked line would match and the rest would
+ * show a false "Missing in 2B". Each group keeps `lines` (how many bills it represents)
+ * and `members` (their indices in the input array) so the reconcile result can be written
+ * back to every member row. Bills with no GSTIN and no invoice number are left un-grouped.
+ */
+export function groupBookSplits(bills) {
+  const groups = new Map();
+  (bills || []).forEach((b, idx) => {
+    const gstin = String(b.gstin || "").toUpperCase();
+    const inv = normalizeInvoiceNo(b.invoiceNo);
+    const key = (gstin || inv) ? `${gstin}|${inv}` : `__blank_${idx}`;
+    const g = groups.get(key);
+    if (!g) {
+      groups.set(key, {
+        gstin: b.gstin || "", invoiceNo: b.invoiceNo || "",
+        taxable: Number(b.taxable || 0), cgst: Number(b.cgst || 0), sgst: Number(b.sgst || 0),
+        igst: Number(b.igst || 0), total: Number(b.total || 0), lines: 1, members: [idx],
+      });
+    } else {
+      RECO_FIELDS.forEach(f => { g[f] += Number(b[f] || 0); });
+      g.lines += 1; g.members.push(idx);
+    }
+  });
+  return [...groups.values()];
+}
+
+/**
  * Reconcile booked bills against GSTR-2B rows with a multi-tier matching cascade.
  *
- * 2B rows for the same invoice are first consolidated (see consolidate2bRows), so a
- * single bill matches an invoice the 2B split across lines. Then each pass runs
- * across ALL still-unmatched bills before the next, and every 2B entry can be claimed
- * only once — so a safe exact match is never stolen by a looser fallback. Tiers,
- * strongest first:
+ * Both sides are consolidated first: 2B rows for one invoice via consolidate2bRows, and
+ * booked bills for one invoice via groupBookSplits — so a single bill matches an invoice
+ * the 2B split across lines (Wave 13) AND several booked ledger lines match one 2B row
+ * (Wave 14). Then each pass runs across ALL still-unmatched book groups before the next,
+ * and every 2B entry can be claimed only once — so a safe exact match is never stolen by a
+ * looser fallback. A group's result is written back to each of its member bill rows.
+ * Tiers, strongest first:
  *   1. exact        — GSTIN + invoice number (alphanumeric, case-insensitive)
  *   2. leading-zero — GSTIN + invoice ignoring leading zeros ("PP/891" ≈ "PP/0891")
  *   3. ocr          — GSTIN + invoice with OCR-confusable chars folded ("89I" ≈ "891")
@@ -284,9 +317,10 @@ export function consolidate2bRows(rows) {
  * `money` formats amounts inside notes (defaults to plain numbers).
  */
 export function reconcile(bills, rows, { tolerance = AMOUNT_TOLERANCE, money = (n) => String(n) } = {}) {
-  // Consolidate split 2B lines, then wrap so each entry can be claimed exactly once.
+  // Consolidate split lines on BOTH sides (2B via consolidate2bRows, books via
+  // groupBookSplits), then wrap each 2B entry so it can be claimed exactly once.
   const rowList = consolidate2bRows(rows).map(r => ({ r, claimed: false }));
-  const billList = (bills || []).map(bill => ({ bill, match: null, matchType: "" }));
+  const groupList = groupBookSplits(bills).map(grp => ({ grp, match: null, matchType: "" }));
 
   // First row wins for any given key (later duplicates fall through to other tiers).
   const idxExact = new Map(), idxLoose = new Map(), idxOcr = new Map();
@@ -303,13 +337,13 @@ export function reconcile(bills, rows, { tolerance = AMOUNT_TOLERANCE, money = (
     byGstin.get(g).push(rw);
   });
 
-  // A keyed pass: claim the first unclaimed 2B row whose key matches each open bill.
+  // A keyed pass: claim the first unclaimed 2B row whose key matches each open book group.
   const keyedPass = (index, keyFn, type) => {
-    billList.forEach(bl => {
-      if (bl.match) return;
-      const g = String(bl.bill.gstin || "").toUpperCase();
-      const rw = index.get(`${g}|${keyFn(bl.bill.invoiceNo)}`);
-      if (rw && !rw.claimed) { rw.claimed = true; bl.match = rw.r; bl.matchType = type; }
+    groupList.forEach(gl => {
+      if (gl.match) return;
+      const g = String(gl.grp.gstin || "").toUpperCase();
+      const rw = index.get(`${g}|${keyFn(gl.grp.invoiceNo)}`);
+      if (rw && !rw.claimed) { rw.claimed = true; gl.match = rw.r; gl.matchType = type; }
     });
   };
 
@@ -318,48 +352,57 @@ export function reconcile(bills, rows, { tolerance = AMOUNT_TOLERANCE, money = (
   keyedPass(idxOcr, normalizeInvoiceOcr, "ocr");
 
   // Tier 4 — invoice number differs entirely: fall back to GSTIN + amount.
-  // Require BOTH taxable and total within tolerance (a strong pair signal), and
-  // pick the closest unclaimed row for that GSTIN.
-  billList.forEach(bl => {
-    if (bl.match) return;
-    const g = String(bl.bill.gstin || "").toUpperCase();
+  // Compare the book GROUP sums; require BOTH taxable and total within tolerance
+  // (a strong pair signal), and pick the closest unclaimed row for that GSTIN.
+  groupList.forEach(gl => {
+    if (gl.match) return;
+    const g = String(gl.grp.gstin || "").toUpperCase();
     let best = null, bestDiff = Infinity;
     (byGstin.get(g) || []).forEach(rw => {
       if (rw.claimed) return;
-      const tol = effectiveTolerance(rw.r.lines, tolerance);
-      const dTax = Math.abs(Number(bl.bill.taxable || 0) - Number(rw.r.taxable || 0));
-      const dTot = Math.abs(Number(bl.bill.total || 0) - Number(rw.r.total || 0));
+      const tol = effectiveTolerance(gl.grp.lines + rw.r.lines - 1, tolerance);
+      const dTax = Math.abs(gl.grp.taxable - Number(rw.r.taxable || 0));
+      const dTot = Math.abs(gl.grp.total - Number(rw.r.total || 0));
       if (dTax <= tol && dTot <= tol && (dTax + dTot) < bestDiff) {
         bestDiff = dTax + dTot; best = rw;
       }
     });
-    if (best) { best.claimed = true; bl.match = best.r; bl.matchType = "amount"; }
+    if (best) { best.claimed = true; gl.match = best.r; gl.matchType = "amount"; }
   });
 
-  const out = billList.map(({ bill, match, matchType }) => {
-    if (!match) return { ...bill, reco: "Missing in 2B", matchType: "", recoNote: "No GSTIN + invoice match in 2B" };
+  // Resolve each book group's status, then write it back to every member bill row
+  // (in the original input order) so the register still shows a per-row result.
+  const out = new Array((bills || []).length);
+  groupList.forEach(({ grp, match, matchType }) => {
+    let reco, recoNote, mt = matchType;
+    if (!match) {
+      reco = "Missing in 2B"; mt = ""; recoNote = "No GSTIN + invoice match in 2B";
+    } else {
+      // Tell the reviewer when either side was summed from several lines.
+      const bookNote = grp.lines > 1 ? `Consolidated ${grp.lines} book lines for this invoice. ` : "";
+      const consNote = match.lines > 1 ? `Consolidated ${match.lines} 2B lines for this invoice. ` : "";
 
-    // When the 2B side was several lines for this invoice, say so — the 2B figures
-    // shown below are the consolidated sum.
-    const consNote = match.lines > 1 ? `Consolidated ${match.lines} 2B lines for this invoice. ` : "";
+      let prefix = "";
+      if (matchType === "leading-zero")
+        prefix = `Matched ignoring leading zeros (books "${grp.invoiceNo}" ≈ 2B "${match.invoiceNo}"). `;
+      else if (matchType === "ocr")
+        prefix = `Probable match — invoice no likely an OCR misread (books "${grp.invoiceNo}" ≈ 2B "${match.invoiceNo}"). Verify. `;
+      else if (matchType === "amount")
+        prefix = `Probable match on GSTIN + amount — invoice no differs (books "${grp.invoiceNo}" vs 2B "${match.invoiceNo}"). Verify. `;
 
-    let prefix = "";
-    if (matchType === "leading-zero")
-      prefix = `Matched ignoring leading zeros (books "${bill.invoiceNo}" ≈ 2B "${match.invoiceNo}"). `;
-    else if (matchType === "ocr")
-      prefix = `Probable match — invoice no likely an OCR misread (books "${bill.invoiceNo}" ≈ 2B "${match.invoiceNo}"). Verify. `;
-    else if (matchType === "amount")
-      prefix = `Probable match on GSTIN + amount — invoice no differs (books "${bill.invoiceNo}" vs 2B "${match.invoiceNo}"). Verify. `;
-
-    const tol = effectiveTolerance(match.lines, tolerance);
-    const mismatches = RECO_FIELDS.filter(f => Math.abs(Number(bill[f] || 0) - Number(match[f] || 0)) > tol);
-    if (mismatches.length) {
-      const detail = mismatches
-        .map(f => `${f.toUpperCase()}: books ${money(Number(bill[f] || 0))} vs 2B ${money(Number(match[f] || 0))}`)
-        .join("; ");
-      return { ...bill, reco: "Mismatch", matchType, recoNote: consNote + prefix + detail };
+      // Tolerance widens with the lines summed on BOTH sides (rounding accumulates).
+      const tol = effectiveTolerance(grp.lines + match.lines - 1, tolerance);
+      const mismatches = RECO_FIELDS.filter(f => Math.abs(grp[f] - Number(match[f] || 0)) > tol);
+      if (mismatches.length) {
+        const detail = mismatches
+          .map(f => `${f.toUpperCase()}: books ${money(grp[f])} vs 2B ${money(Number(match[f] || 0))}`)
+          .join("; ");
+        reco = "Mismatch"; recoNote = bookNote + consNote + prefix + detail;
+      } else {
+        reco = "Matched"; recoNote = (bookNote + consNote + prefix).trim();
+      }
     }
-    return { ...bill, reco: "Matched", matchType, recoNote: (consNote + prefix).trim() };
+    grp.members.forEach(idx => { out[idx] = { ...bills[idx], reco, matchType: mt, recoNote }; });
   });
 
   return { bills: out, unmatched: rowList.filter(rw => !rw.claimed).map(rw => rw.r) };

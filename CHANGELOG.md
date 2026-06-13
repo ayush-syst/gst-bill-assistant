@@ -6,6 +6,17 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (reconciliation accuracy — v3.8.0)
+- **Book-side split consolidation (Wave 14).** The symmetric twin of v3.7's 2B-side
+  consolidation: booked bills that share a GSTIN + invoice number are now summed into one
+  group (new pure `groupBookSplits()`) and matched as a unit against the 2B row. So when a
+  firm books a single supplier invoice as several ledger lines (split by HSN, goods vs
+  freight, or different ledgers), **every** line reconciles instead of only the first —
+  killing the false **"Missing in 2B"** on the rest. The group's result is written back to
+  each member row, which reads *"Consolidated N book lines for this invoice"*, and the match
+  tolerance widens with the lines summed on **both** sides. **39 tests** (added
+  `groupBookSplits`, all-lines-matched, short-sum mismatch, and split-on-both-sides cases).
+
 ### Fixed (reconciliation accuracy — v3.7.1)
 - **Line-aware match tolerance for split invoices.** When a GSTR-2B invoice is consolidated
   from several rate/HSN lines, per-line rupee rounding accumulates, so the summed figure can

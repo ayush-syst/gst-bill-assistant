@@ -9,7 +9,7 @@ import {
   billGst, rowStatus, statusBadgeClass,
   parseCsv, normalizeHeader, getByHeader,
   parseInvoiceMonth, invoicePeriodMismatch,
-  reconcile, consolidate2bRows, parseBillsCsv, vendorCompliance,
+  reconcile, consolidate2bRows, groupBookSplits, parseBillsCsv, vendorCompliance,
   gstRate, rateWiseSummary, itcSummary,
 } from "../assets/js/core.mjs";
 
@@ -321,6 +321,69 @@ test("reconcile: consolidated drift beyond the widened tolerance is still a Mism
   assert.equal(out.reco, "Mismatch");
   assert.match(out.recoNote, /Consolidated 3 2B lines/);
   assert.match(out.recoNote, /TAXABLE: books 10000 vs 2B 10010/);
+});
+
+// ---------- groupBookSplits + book-side consolidation (Wave 14) ----------
+test("groupBookSplits sums same-invoice book lines and keeps member indices", () => {
+  const bills = [
+    { gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "3000", igst: "540", total: "3540" },
+    { gstin: "29AAICA3918J1ZE", invoiceNo: "X-9",   taxable: "1000", igst: "180", total: "1180" },
+    { gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "2000", igst: "360", total: "2360" }, // same invoice as #0
+  ];
+  const groups = groupBookSplits(bills);
+  assert.equal(groups.length, 2);
+  const inv1 = groups.find(g => g.invoiceNo === "INV-1");
+  assert.equal(inv1.lines, 2);
+  assert.equal(inv1.taxable, 5000);          // 3000 + 2000
+  assert.equal(inv1.total, 5900);            // 3540 + 2360
+  assert.deepEqual(inv1.members, [0, 2]);    // original indices, in order
+});
+
+test("reconcile: several booked lines matching one 2B row are ALL Matched (Wave 14)", () => {
+  // The firm booked INV-1 as 3 ledger lines; the 2B has it as a single row.
+  const bills = [
+    b("27ABCDE1234F1Z0", "INV-1", { taxable: "3000", igst: "540", total: "3540" }),
+    b("27ABCDE1234F1Z0", "INV-1", { taxable: "4000", igst: "720", total: "4720" }),
+    b("27ABCDE1234F1Z0", "INV-1", { taxable: "3000", igst: "540", total: "3540" }), // book sum: 10000 / 1800 / 11800
+  ];
+  const rows = [{ gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "10000", igst: "1800", total: "11800" }];
+  const { bills: out, unmatched } = reconcile(bills, rows);
+  assert.equal(out[0].reco, "Matched");
+  assert.equal(out[1].reco, "Matched");
+  assert.equal(out[2].reco, "Matched");                       // every booked line, not just the first
+  assert.match(out[0].recoNote, /Consolidated 3 book lines/);
+  assert.equal(unmatched.length, 0);                          // 2B row claimed; no leftovers
+});
+
+test("reconcile: booked lines that don't sum to the 2B invoice are ALL Mismatch (Wave 14)", () => {
+  // Only 2 of the 3 lines were booked, so the book sum is short of the 2B invoice.
+  const bills = [
+    b("27ABCDE1234F1Z0", "INV-1", { taxable: "3000", igst: "540", total: "3540" }),
+    b("27ABCDE1234F1Z0", "INV-1", { taxable: "4000", igst: "720", total: "4720" }), // book sum: 7000 / 1260 / 8260
+  ];
+  const rows = [{ gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "10000", igst: "1800", total: "11800" }];
+  const out = reconcile(bills, rows).bills;
+  assert.equal(out[0].reco, "Mismatch");
+  assert.equal(out[1].reco, "Mismatch");
+  assert.match(out[0].recoNote, /Consolidated 2 book lines/);
+  assert.match(out[0].recoNote, /TAXABLE: books 7000 vs 2B 10000/);
+});
+
+test("reconcile: split on BOTH sides (several book lines vs several 2B lines) reconciles", () => {
+  const bills = [
+    b("27ABCDE1234F1Z0", "INV-1", { taxable: "6000", igst: "1080", total: "7080" }),
+    b("27ABCDE1234F1Z0", "INV-1", { taxable: "4000", igst: "720", total: "4720" }), // book sum 10000 / 1800 / 11800
+  ];
+  const rows = [
+    { gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "5000", igst: "900", total: "5900" },
+    { gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "5000", igst: "900", total: "5900" }, // 2B sum 10000 / 1800 / 11800
+  ];
+  const { bills: out, unmatched } = reconcile(bills, rows);
+  assert.equal(out[0].reco, "Matched");
+  assert.equal(out[1].reco, "Matched");
+  assert.match(out[0].recoNote, /Consolidated 2 book lines/);
+  assert.match(out[0].recoNote, /Consolidated 2 2B lines/);
+  assert.equal(unmatched.length, 0);
 });
 
 // ---------- parseBillsCsv (integration) ----------
