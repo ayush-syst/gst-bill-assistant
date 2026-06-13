@@ -6,6 +6,16 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (reconciliation accuracy — v3.7.1)
+- **Line-aware match tolerance for split invoices.** When a GSTR-2B invoice is consolidated
+  from several rate/HSN lines, per-line rupee rounding accumulates, so the summed figure can
+  legitimately drift a few rupees from the single booked amount. The flat ₹2 tolerance flagged
+  those as a false **"Mismatch"**, sending the reviewer to chase a discrepancy that wasn't real.
+  Tolerance now widens by ₹1 per consolidated line beyond the first (new pure `effectiveTolerance()`
+  + `PER_LINE_TOLERANCE` in core.mjs); single-line invoices are completely unchanged, and drift
+  beyond the band still surfaces as a genuine Mismatch. **35 tests** (added the helper, a
+  within-band match, and a beyond-band mismatch case).
+
 ### Changed (reconciliation accuracy — v3.7)
 - **Split-invoice consolidation.** Before matching, GSTR-2B rows that share the same
   GSTIN + invoice number are now summed into one entry (new pure `consolidate2bRows()`).

@@ -9,6 +9,24 @@
 /** Rs. rounding tolerance used for total checks and 2B matching. */
 export const AMOUNT_TOLERANCE = 2;
 
+/** Extra ₹ of rounding drift allowed per consolidated line, on top of the base tolerance. */
+export const PER_LINE_TOLERANCE = 1;
+
+/**
+ * Effective amount tolerance for a 2B comparison. A 2B invoice consolidated from
+ * multiple lines (see consolidate2bRows) accumulates per-line rupee rounding, so the
+ * summed figure can legitimately drift a few rupees from the single booked figure.
+ * We widen the tolerance by PER_LINE_TOLERANCE for each line beyond the first; a
+ * single-line invoice keeps the base tolerance exactly (so ordinary, non-split
+ * matching is unchanged). Deliberately additive (not a percentage) so it never
+ * silently masks a material error on a large-value invoice.
+ *   effectiveTolerance(1) === base;  effectiveTolerance(n) === base + (n-1)*PER_LINE_TOLERANCE
+ */
+export function effectiveTolerance(lines = 1, base = AMOUNT_TOLERANCE) {
+  const n = Number(lines) || 1;
+  return base + Math.max(0, n - 1) * PER_LINE_TOLERANCE;
+}
+
 // ---------- Number / string normalization ----------
 
 /** Extract a clean numeric string from a value (strips ₹, commas, spaces). */
@@ -308,9 +326,10 @@ export function reconcile(bills, rows, { tolerance = AMOUNT_TOLERANCE, money = (
     let best = null, bestDiff = Infinity;
     (byGstin.get(g) || []).forEach(rw => {
       if (rw.claimed) return;
+      const tol = effectiveTolerance(rw.r.lines, tolerance);
       const dTax = Math.abs(Number(bl.bill.taxable || 0) - Number(rw.r.taxable || 0));
       const dTot = Math.abs(Number(bl.bill.total || 0) - Number(rw.r.total || 0));
-      if (dTax <= tolerance && dTot <= tolerance && (dTax + dTot) < bestDiff) {
+      if (dTax <= tol && dTot <= tol && (dTax + dTot) < bestDiff) {
         bestDiff = dTax + dTot; best = rw;
       }
     });
@@ -332,7 +351,8 @@ export function reconcile(bills, rows, { tolerance = AMOUNT_TOLERANCE, money = (
     else if (matchType === "amount")
       prefix = `Probable match on GSTIN + amount — invoice no differs (books "${bill.invoiceNo}" vs 2B "${match.invoiceNo}"). Verify. `;
 
-    const mismatches = RECO_FIELDS.filter(f => Math.abs(Number(bill[f] || 0) - Number(match[f] || 0)) > tolerance);
+    const tol = effectiveTolerance(match.lines, tolerance);
+    const mismatches = RECO_FIELDS.filter(f => Math.abs(Number(bill[f] || 0) - Number(match[f] || 0)) > tol);
     if (mismatches.length) {
       const detail = mismatches
         .map(f => `${f.toUpperCase()}: books ${money(Number(bill[f] || 0))} vs 2B ${money(Number(match[f] || 0))}`)

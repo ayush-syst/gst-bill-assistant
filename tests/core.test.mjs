@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  AMOUNT_TOLERANCE,
+  AMOUNT_TOLERANCE, PER_LINE_TOLERANCE, effectiveTolerance,
   normalizeNumber, normalizeInvoiceNo, normalizeInvoiceLoose, normalizeInvoiceOcr,
   gstinCheckDigit, gstinChecksumOk, isValidGstin, gstinStateCode,
   billGst, rowStatus, statusBadgeClass,
@@ -283,6 +283,44 @@ test("reconcile: consolidated 2B sum that still differs from books is a Mismatch
   assert.equal(out.reco, "Mismatch");
   assert.match(out.recoNote, /Consolidated 2 2B lines/);
   assert.match(out.recoNote, /TAXABLE: books 9000 vs 2B 10000/);
+});
+
+// ---------- effectiveTolerance (rounding drift on consolidated invoices) ----------
+test("effectiveTolerance widens by PER_LINE_TOLERANCE per consolidated line beyond the first", () => {
+  assert.equal(effectiveTolerance(1), AMOUNT_TOLERANCE);                       // single line: base, unchanged
+  assert.equal(effectiveTolerance(3), AMOUNT_TOLERANCE + 2 * PER_LINE_TOLERANCE);
+  assert.equal(effectiveTolerance(4, 2), 5);                                  // custom base 2 + 3*1
+  assert.equal(effectiveTolerance(1, 5), 5);                                  // custom base, single line
+  assert.equal(effectiveTolerance(0), AMOUNT_TOLERANCE);                      // 0/blank guarded to 1 line
+  assert.equal(effectiveTolerance(undefined), AMOUNT_TOLERANCE);
+});
+
+test("reconcile: consolidated multi-line 2B within per-line rounding drift is Matched (not a false Mismatch)", () => {
+  // One booked invoice; the 2B split it into 3 lines whose rounded sum drifts +3 from books.
+  // A flat ₹2 tolerance would wrongly flag this Mismatch; the line-aware tolerance (₹4 for 3 lines) matches it.
+  const bills = [b("27ABCDE1234F1Z0", "INV-1", { taxable: "10000", cgst: "0", sgst: "0", igst: "1800", total: "11800" })];
+  const rows = [
+    { gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "3334", igst: "600", total: "3934" },
+    { gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "3334", igst: "600", total: "3934" },
+    { gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "3335", igst: "600", total: "3935" }, // sum: 10003 / 1800 / 11803
+  ];
+  const out = reconcile(bills, rows).bills[0];
+  assert.equal(out.reco, "Matched");
+  assert.match(out.recoNote, /Consolidated 3 2B lines/);
+});
+
+test("reconcile: consolidated drift beyond the widened tolerance is still a Mismatch", () => {
+  // Same shape, but the 2B sum drifts +10 from books — well beyond ₹4, so it must stay a Mismatch.
+  const bills = [b("27ABCDE1234F1Z0", "INV-1", { taxable: "10000", cgst: "0", sgst: "0", igst: "1800", total: "11800" })];
+  const rows = [
+    { gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "3340", igst: "600", total: "3940" },
+    { gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "3340", igst: "600", total: "3940" },
+    { gstin: "27ABCDE1234F1Z0", invoiceNo: "INV-1", taxable: "3330", igst: "600", total: "3930" }, // sum: 10010 / 1800 / 11810
+  ];
+  const out = reconcile(bills, rows).bills[0];
+  assert.equal(out.reco, "Mismatch");
+  assert.match(out.recoNote, /Consolidated 3 2B lines/);
+  assert.match(out.recoNote, /TAXABLE: books 10000 vs 2B 10010/);
 });
 
 // ---------- parseBillsCsv (integration) ----------

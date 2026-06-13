@@ -14,7 +14,7 @@
     // =============================================================
     // CONFIG — app-level constants (domain tunables are in core.mjs)
     // =============================================================
-    const APP_VERSION = "3.7.0";
+    const APP_VERSION = "3.7.1";
     const AI_MODEL = "claude-sonnet-4-6";       // Anthropic model id used for AI features
     let matchTolerance = AMOUNT_TOLERANCE;       // Rs. 2B-match tolerance (configurable in Settings)
 
